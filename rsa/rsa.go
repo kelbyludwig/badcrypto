@@ -47,29 +47,72 @@ func GenerateKey(bits int) (priv *PrivateKey, err error) {
 		return
 	}
 
-	p, err1 := rand.Prime(rand.Reader, bits)
-	q, err2 := rand.Prime(rand.Reader, bits)
-
-	if err1 != nil || err2 != nil {
-		err = fmt.Errorf("unable to generate prime numbers")
-		return
-	}
+	pub := new(PublicKey)
+	pub.E = 3
 
 	priv = new(PrivateKey)
 	priv.Primes = make([]*big.Int, 2)
-	priv.Primes[0] = p
-	priv.Primes[1] = q
 
-	totient1 := new(big.Int).Sub(p, big.NewInt(1))
-	totient2 := new(big.Int).Sub(q, big.NewInt(1))
-	totient := new(big.Int).Mul(totient1, totient2)
+	for {
+		p, err1 := rand.Prime(rand.Reader, bits)
+		q, err2 := rand.Prime(rand.Reader, bits)
 
-	pub := new(PublicKey)
-	pub.E = 3
-	pub.N = new(big.Int).Mul(p, q)
+		if err1 != nil || err2 != nil {
+			err = fmt.Errorf("unable to generate prime numbers")
+			return
+		}
 
-	priv.D = new(big.Int).ModInverse(big.NewInt(int64(pub.E)), totient)
+		priv.Primes[0] = p
+		priv.Primes[1] = q
+
+		totient1 := new(big.Int).Sub(p, big.NewInt(1))
+		totient2 := new(big.Int).Sub(q, big.NewInt(1))
+		totient := new(big.Int).Mul(totient1, totient2)
+
+		gcd := new(big.Int).GCD(nil, nil, totient, big.NewInt((pub.E)))
+		if gcd.Cmp(big.NewInt(1)) == 0 {
+			pub.N = new(big.Int).Mul(p, q)
+			priv.D = new(big.Int).ModInverse(big.NewInt(int64(pub.E)), totient)
+			break
+		}
+	}
+
 	priv.PublicKey = pub
 	return
 
+}
+
+//ChineseRemainderTheorem solves a set of congruences of the form:
+//  x = a1 (mod m1)
+//  x = a2 (mod m2)
+//  ...
+//  x = an (mod mn)
+//ChineseRemainderTheorem takes the set of ai and mi as input and returns x.
+func ChineseRemainderTheorem(as, ms []*big.Int) (*big.Int, error) {
+
+	if len(as) != len(ms) {
+		return big.NewInt(0), fmt.Errorf("lists provided were unequal in lenght")
+	}
+
+	M := big.NewInt(1)
+	for _, m := range ms {
+		gcd := new(big.Int).GCD(nil, nil, M, m)
+		if gcd.Cmp(big.NewInt(1)) != 0 {
+			return big.NewInt(0), fmt.Errorf("moduli were not comprime")
+		}
+		M = M.Mul(M, m)
+	}
+
+	result := big.NewInt(0)
+	for i, a := range as {
+		b := new(big.Int).Div(M, ms[i])
+		bi := new(big.Int).ModInverse(b, ms[i])
+		mul := new(big.Int).Mul(b, bi)
+		mul = mul.Mod(mul, M)
+		mul = mul.Mul(mul, a)
+		mul = mul.Mod(mul, M)
+		result = result.Add(result, mul)
+	}
+	result = result.Mod(result, M)
+	return result, nil
 }

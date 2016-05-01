@@ -2,11 +2,12 @@ package rsa
 
 import (
 	"log"
+	"math/big"
 	"testing"
 )
 
 func TestGenerateKey(t *testing.T) {
-	priv, err := GenerateKey(512)
+	priv, err := GenerateKey(64)
 	if err != nil {
 		t.Errorf("%v\n", err)
 		return
@@ -16,19 +17,44 @@ func TestGenerateKey(t *testing.T) {
 	log.Printf("priv.Public %v\n", priv.PublicKey)
 }
 
+//TestEncryptDecrypt is a test for Cryptopals Set 5 Challenge 39
 func TestEncryptDecrypt(t *testing.T) {
-	priv, err := GenerateKey(512)
+	priv, err := GenerateKey(128)
 	if err != nil {
 		t.Errorf("%v\n", err)
 		return
 	}
 	message := []byte("Cannnnnnnn do.")
 	ciphertext := EncryptNoPadding(message, priv.PublicKey)
+	log.Printf("private %+v\n", priv)
+	log.Printf("public  %+v\n", priv.PublicKey)
 	log.Printf("ciphertext %v\n", ciphertext)
 	plaintext := DecryptNoPadding(ciphertext, priv)
 	log.Printf("plaintext %v\n", plaintext)
 	if string(plaintext) != string(message) {
 		t.Errorf("decrypted message did not match plaintext")
+		return
+	}
+}
+
+func TestChineseRemainderTheorem(t *testing.T) {
+	//x = 2 mod 13
+	//x = 3 mod 11
+	//x = 4 mod 9
+	//x = 652
+
+	as := []*big.Int{big.NewInt(2), big.NewInt(3), big.NewInt(4)}
+	ms := []*big.Int{big.NewInt(13), big.NewInt(11), big.NewInt(9)}
+
+	result, err := ChineseRemainderTheorem(as, ms)
+
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+
+	if result.Cmp(big.NewInt(652)) != 0 {
+		t.Errorf("crt result was incorrect. %v != 652", result)
 		return
 	}
 }
