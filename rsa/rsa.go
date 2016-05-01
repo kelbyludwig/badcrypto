@@ -9,7 +9,7 @@ import (
 //PublicKey represents the public half of an RSA keypair.
 type PublicKey struct {
 	N *big.Int // Modulus
-	E int      //Public exponent
+	E int64    //Public exponent
 }
 
 //PrivateKey represents the private half of an RSA keypair.
@@ -17,6 +17,25 @@ type PrivateKey struct {
 	PublicKey *PublicKey
 	D         *big.Int
 	Primes    []*big.Int
+}
+
+//EncryptNoPadding encrypts the supplied plaintext byte slice using the supplied public key.
+//EncryptNoPadding does not pad the plaintext prior to encryption.
+func EncryptNoPadding(plaintext []byte, publicKey *PublicKey) (ciphertext []byte) {
+	num := new(big.Int).SetBytes(plaintext)
+	ct := new(big.Int).Exp(num, big.NewInt(publicKey.E), publicKey.N)
+	ciphertext = ct.Bytes()
+	return
+}
+
+//DecryptNoPadding decrypts the supplied ciphertext using the supplied PrivateKey.
+//DecryptNoPadding does not validate or strip off any form of padding.
+func DecryptNoPadding(ciphertext []byte, privateKey *PrivateKey) (plaintext []byte) {
+	num := new(big.Int).SetBytes(ciphertext)
+	N := privateKey.PublicKey.N
+	pt := new(big.Int).Exp(num, privateKey.D, N)
+	plaintext = pt.Bytes()
+	return
 }
 
 //GenerateKey generates an RSA private key (and corresponding public key)
