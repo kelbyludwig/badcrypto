@@ -58,3 +58,37 @@ func TestChineseRemainderTheorem(t *testing.T) {
 		return
 	}
 }
+
+//TestBroadcastAttack is a test for Cryptopals Set 5 Challenge 40
+func TestBroadcastAttack(t *testing.T) {
+
+	p1, err1 := GenerateKey(128)
+	p2, err2 := GenerateKey(128)
+	p3, err3 := GenerateKey(128)
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		t.Errorf("error in key generation\n")
+		return
+	}
+
+	message := []byte("Oh yeah. Can do.")
+	mb := new(big.Int).SetBytes(message)
+	c1 := EncryptNoPadding(message, p1.PublicKey)
+	c2 := EncryptNoPadding(message, p2.PublicKey)
+	c3 := EncryptNoPadding(message, p3.PublicKey)
+
+	cs := []*big.Int{new(big.Int).SetBytes(c1), new(big.Int).SetBytes(c2), new(big.Int).SetBytes(c3)}
+	ns := []*big.Int{p1.PublicKey.N, p2.PublicKey.N, p3.PublicKey.N}
+
+	result, err := ChineseRemainderTheorem(cs, ns)
+
+	if err != nil {
+		t.Errorf("error in crt")
+		return
+	}
+	m := BigIntCubeRootFloor(result)
+	if m.Cmp(mb) != 0 {
+		t.Errorf("the cube root result was incorrect")
+		return
+	}
+}

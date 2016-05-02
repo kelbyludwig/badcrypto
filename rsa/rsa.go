@@ -116,3 +116,19 @@ func ChineseRemainderTheorem(as, ms []*big.Int) (*big.Int, error) {
 	result = result.Mod(result, M)
 	return result, nil
 }
+
+//BigIntCubeRootFloor computes the floor of the cube root of a positive integer.
+//The algorithm is described here: http://math.stackexchange.com/a/263113
+func BigIntCubeRootFloor(n *big.Int) *big.Int {
+	THREE := big.NewInt(3)
+	cube, x := new(big.Int), new(big.Int)
+
+	a := new(big.Int).Set(n)
+	for cube.Exp(a, THREE, nil).Cmp(n) > 0 {
+		x.Quo(n, x.Mul(a, a))
+		x.Add(x.Add(x, a), a)
+		a.Quo(x, THREE)
+	}
+
+	return a
+}
