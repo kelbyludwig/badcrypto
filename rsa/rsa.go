@@ -119,6 +119,7 @@ func ChineseRemainderTheorem(as, ms []*big.Int) (*big.Int, error) {
 
 //BigIntCubeRootFloor computes the floor of the cube root of a positive integer.
 //The algorithm is described here: http://math.stackexchange.com/a/263113
+//This can be used to execute Hastad's "Broadcast Attack."
 func BigIntCubeRootFloor(n *big.Int) *big.Int {
 	THREE := big.NewInt(3)
 	cube, x := new(big.Int), new(big.Int)
