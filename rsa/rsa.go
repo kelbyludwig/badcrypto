@@ -133,3 +133,41 @@ func BigIntCubeRootFloor(n *big.Int) *big.Int {
 
 	return a
 }
+
+func MontgomeryReduction(m, b, n, t *big.Int) *big.Int {
+
+	fmt.Printf("[DEBUG] MontgomeryReduction\n")
+	fmt.Printf("[DEBUG] Input: m %v | b %v\n", m, b)
+	fmt.Printf("[DEBUG] Input: n %v | t %v\n", n, t)
+
+	a := new(big.Int).SetBits(t.Bits())
+	fmt.Printf("[DEBUG] Initial A: %v\n", a)
+	r := new(big.Int).Exp(b, n, nil)
+	fmt.Printf("[DEBUG] R: %v\n", r)
+
+	mp := new(big.Int).Neg(m)
+	mp = mp.ModInverse(mp, b)
+	fmt.Printf("[DEBUG] m': %v\n", mp)
+
+	tb := t.Bits()
+	ti := new(big.Int)
+	bi := new(big.Int)
+
+	for i, _ := range tb {
+		ti = ti.SetBits(tb[i : i+1])
+		ui := ti.Mul(ti, mp)
+		ui = ui.Mod(ui, b)
+		bi = bi.Exp(b, big.NewInt(int64(i)), nil)
+		bi = bi.Mul(bi, m)
+		bi = bi.Mul(ui, bi)
+		a = a.Add(a, bi)
+	}
+	ri := r.ModInverse(r, m)
+	a = a.Mul(a, ri)
+
+	if cmp := a.Cmp(m); cmp == 1 || cmp == 0 {
+		a = a.Sub(a, m)
+	}
+
+	return a
+}
