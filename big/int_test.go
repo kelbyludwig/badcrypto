@@ -17,3 +17,27 @@ func TestMontgomeryReduction(t *testing.T) {
 		return
 	}
 }
+
+func TestMontgomeryMult(t *testing.T) {
+
+	tests := []struct {
+		x, y, m, answer *big.Int
+	}{
+
+		{big.NewInt(70), big.NewInt(91), big.NewInt(563), big.NewInt(177)},
+		{big.NewInt(91), big.NewInt(70), big.NewInt(563), big.NewInt(177)},
+		{big.NewInt(456), big.NewInt(123), big.NewInt(789), big.NewInt(69)},
+		{big.NewInt(123), big.NewInt(456), big.NewInt(789), big.NewInt(69)},
+		{big.NewInt(1234567), big.NewInt(890123), big.NewInt(999999999), big.NewInt(916482839)},
+	}
+
+	for i, a := range tests {
+		result := MontgomeryMul(a.x, a.y, a.m)
+
+		if a.answer.Cmp(result) != 0 {
+			t.Errorf("montgomery multiplication test failed\n")
+			t.Logf("(%v) %v != %v\n", i, a.answer, result)
+			return
+		}
+	}
+}
