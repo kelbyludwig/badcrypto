@@ -10,7 +10,7 @@ func TestMontgomeryReduction(t *testing.T) {
 	T := big.NewInt(563)
 
 	answer := big.NewInt(19)
-	result := MontgomeryReduction(m, T)
+	result := montgomeryReduction(m, T)
 
 	if answer.Cmp(result) != 0 {
 		t.Errorf("montgomery reduction test failed\n")
@@ -32,7 +32,7 @@ func TestMontgomeryMult(t *testing.T) {
 	}
 
 	for i, a := range tests {
-		result := MontgomeryMul(a.x, a.y, a.m)
+		result := montgomeryMul(a.x, a.y, a.m)
 
 		if a.answer.Cmp(result) != 0 {
 			t.Errorf("montgomery multiplication test failed\n")
@@ -40,4 +40,24 @@ func TestMontgomeryMult(t *testing.T) {
 			return
 		}
 	}
+}
+
+func TestExpMont(t *testing.T) {
+	tests := []struct {
+		x, y, m, answer *big.Int
+	}{
+		{big.NewInt(2), big.NewInt(8), big.NewInt(9), big.NewInt(4)},
+		{big.NewInt(70), big.NewInt(54), big.NewInt(17), big.NewInt(13)},
+	}
+
+	for i, a := range tests {
+		result := ExpMont(a.x, a.y, a.m)
+
+		if a.answer.Cmp(result) != 0 {
+			t.Errorf("exp mont test failed\n")
+			t.Logf("(%v) %v != %v\n", i, a.answer, result)
+			return
+		}
+	}
+
 }
