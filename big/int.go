@@ -1,6 +1,7 @@
 package big
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -91,9 +92,13 @@ func montgomeryMul(x, y, m *big.Int) *big.Int {
 
 }
 
-//MontgomeryMul computes xy (mod m) using the
+//MontgomeryMul computes xyR^-1 (mod m) using the
 //Montgomery multiplication technique.
-func MontgomeryMul(x, y, m *big.Int) *big.Int {
+func MontgomeryMul(x, y, m *big.Int) (*big.Int, error) {
+
+	if x.Cmp(m) == 1 || y.Cmp(m) == 1 {
+		return x, fmt.Errorf("input must be reduced modulo m\n")
+	}
 
 	b := big.NewInt(2)
 	n := m.BitLen()
@@ -130,14 +135,30 @@ func MontgomeryMul(x, y, m *big.Int) *big.Int {
 		A = A.Sub(A, m)
 	}
 
-	//A = A.Mul(A, R)
-	//A = A.Mod(A, m)
-	return A
+	return A, nil
 
 }
 
-//ExpMont computes x^y (mod m) using
+//ExpMont computes x^e (mod m) using
 //the Montgomery multiplication algorithm.
-func ExpMont(x, y, m *big.Int) *big.Int {
+func MontgomeryExp(x, e, m *big.Int) (*big.Int, error) {
 
+	if x.Cmp(m) == 1 {
+		return x, fmt.Errorf("input must be reduced modulo m\n")
+	}
+	b := big.NewInt(2)
+	n := m.BitLen()
+	R := new(big.Int).Exp(b, big.NewInt(int64(n)), nil)
+	R2 := new(big.Int).Exp(R, b, m)
+	A := R.Mod(R, m)
+	xs, _ := MontgomeryMul(x, R2, m)
+
+	for i := e.BitLen(); i >= 0; i-- {
+		A, _ = MontgomeryMul(A, A, m)
+		if e.Bit(i) == 1 {
+			A, _ = MontgomeryMul(A, xs, m)
+		}
+	}
+	A, _ = MontgomeryMul(A, big.NewInt(1), m)
+	return A, nil
 }

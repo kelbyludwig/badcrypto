@@ -46,12 +46,18 @@ func TestExpMont(t *testing.T) {
 	tests := []struct {
 		x, y, m, answer *big.Int
 	}{
+		{big.NewInt(7), big.NewInt(10), big.NewInt(13), big.NewInt(4)},
 		{big.NewInt(2), big.NewInt(8), big.NewInt(9), big.NewInt(4)},
-		{big.NewInt(70), big.NewInt(54), big.NewInt(17), big.NewInt(13)},
+		{big.NewInt(2), big.NewInt(54), big.NewInt(17), big.NewInt(13)},
 	}
 
 	for i, a := range tests {
-		result := ExpMont(a.x, a.y, a.m)
+		result, err := MontgomeryExp(a.x, a.y, a.m)
+
+		if err != nil {
+			t.Errorf("%v\n", err)
+			return
+		}
 
 		if a.answer.Cmp(result) != 0 {
 			t.Errorf("exp mont test failed\n")
