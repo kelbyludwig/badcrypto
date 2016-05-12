@@ -37,6 +37,32 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
+//TestEncryptDecrypt is a test to verify Montgomery exponentiation works as planned.
+func TestEncryptDecryptMontgomery(t *testing.T) {
+	priv, err := GenerateKey(128)
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+	message := []byte("Cannnnnnnn do.")
+	ciphertext := EncryptNoPaddingMontgomery(message, priv.PublicKey)
+	ciphertextCorrect := EncryptNoPadding(message, priv.PublicKey)
+
+	if string(ciphertext) != string(ciphertextCorrect) {
+		t.Errorf("montgomery exp returns different result")
+		return
+	}
+	log.Printf("private %+v\n", priv)
+	log.Printf("public  %+v\n", priv.PublicKey)
+	log.Printf("ciphertext %v\n", ciphertext)
+	plaintext := DecryptNoPaddingMontgomery(ciphertext, priv)
+	log.Printf("plaintext %v\n", plaintext)
+	if string(plaintext) != string(message) {
+		t.Errorf("decrypted message did not match plaintext")
+		return
+	}
+}
+
 func TestChineseRemainderTheorem(t *testing.T) {
 	//x = 2 mod 13
 	//x = 3 mod 11

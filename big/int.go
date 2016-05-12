@@ -131,6 +131,7 @@ func MontgomeryMul(x, y, m *big.Int) (*big.Int, error) {
 		A = A.Rsh(ad, uint(1))
 	}
 
+	//The big bad "extra reduction" step :)
 	if cmp := A.Cmp(m); cmp == 0 || cmp == 1 {
 		A = A.Sub(A, m)
 	}
