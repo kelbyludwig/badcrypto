@@ -54,8 +54,8 @@ func TestExpMont(t *testing.T) {
 	for i, a := range tests {
 		result, err := MontgomeryExp(a.x, a.y, a.m)
 
-		if err != nil {
-			t.Errorf("%v\n", err)
+		if err == -1 {
+			t.Errorf("x or y was not reduced prior to exponentiation\n")
 			return
 		}
 

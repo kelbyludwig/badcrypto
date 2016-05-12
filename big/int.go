@@ -1,7 +1,6 @@
 package big
 
 import (
-	"fmt"
 	"math/big"
 )
 
@@ -94,10 +93,14 @@ func montgomeryMul(x, y, m *big.Int) *big.Int {
 
 //MontgomeryMul computes xyR^-1 (mod m) using the
 //Montgomery multiplication technique.
-func MontgomeryMul(x, y, m *big.Int) (*big.Int, error) {
+//The int that is returned is used for error handling and
+//assisting in side-channel research. It will return -1
+//when there was an error, 0 if no "extra reduction" was
+//performed, and 1 if an "extra reducation" was performed.
+func MontgomeryMul(x, y, m *big.Int) (*big.Int, int) {
 
 	if x.Cmp(m) == 1 || y.Cmp(m) == 1 {
-		return x, fmt.Errorf("input must be reduced modulo m\n")
+		return x, -1
 	}
 
 	b := big.NewInt(2)
@@ -131,21 +134,27 @@ func MontgomeryMul(x, y, m *big.Int) (*big.Int, error) {
 		A = A.Rsh(ad, uint(1))
 	}
 
+	extra := 0
 	//The big bad "extra reduction" step :)
 	if cmp := A.Cmp(m); cmp == 0 || cmp == 1 {
 		A = A.Sub(A, m)
+		extra = 1
 	}
 
-	return A, nil
+	return A, extra
 
 }
 
 //ExpMont computes x^e (mod m) using
 //the Montgomery multiplication algorithm.
-func MontgomeryExp(x, e, m *big.Int) (*big.Int, error) {
+//The int that is returned is used for error handling and
+//assisting in side-channel research. It will return -1
+//when there was an error, 0 if no "extra reduction" was
+//performed, and 1 if an "extra reducation" was performed.
+func MontgomeryExp(x, e, m *big.Int) (*big.Int, int) {
 
 	if x.Cmp(m) == 1 {
-		return x, fmt.Errorf("input must be reduced modulo m\n")
+		return x, -1
 	}
 	b := big.NewInt(2)
 	n := m.BitLen()
@@ -154,12 +163,20 @@ func MontgomeryExp(x, e, m *big.Int) (*big.Int, error) {
 	A := R.Mod(R, m)
 	xs, _ := MontgomeryMul(x, R2, m)
 
+	//extras tracks how many "extra reductions" where performed
+	//over the course of the exponentiation.
+	extras := 0
+	extra := 0
 	for i := e.BitLen(); i >= 0; i-- {
-		A, _ = MontgomeryMul(A, A, m)
+		A, extra = MontgomeryMul(A, A, m)
+		extras += extra
 		if e.Bit(i) == 1 {
-			A, _ = MontgomeryMul(A, xs, m)
+			A, extra = MontgomeryMul(A, xs, m)
+			extras += extra
 		}
+		extra = 0
 	}
-	A, _ = MontgomeryMul(A, big.NewInt(1), m)
-	return A, nil
+	A, extra = MontgomeryMul(A, big.NewInt(1), m)
+	extras += extra
+	return A, extras
 }
