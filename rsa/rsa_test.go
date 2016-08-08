@@ -1,6 +1,7 @@
 package rsa
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 	"testing"
@@ -45,7 +46,7 @@ func TestEncryptDecryptMontgomery(t *testing.T) {
 		return
 	}
 	message := []byte("Cannnnnnnn do.")
-	ciphertext := EncryptNoPaddingMontgomery(message, priv.PublicKey)
+	ciphertext, _ := encryptNoPaddingMontgomery(message, priv.PublicKey)
 	ciphertextCorrect := EncryptNoPadding(message, priv.PublicKey)
 
 	if string(ciphertext) != string(ciphertextCorrect) {
@@ -55,7 +56,7 @@ func TestEncryptDecryptMontgomery(t *testing.T) {
 	log.Printf("private %+v\n", priv)
 	log.Printf("public  %+v\n", priv.PublicKey)
 	log.Printf("ciphertext %v\n", ciphertext)
-	plaintext := DecryptNoPaddingMontgomery(ciphertext, priv)
+	plaintext, _ := decryptNoPaddingMontgomery(ciphertext, priv)
 	log.Printf("plaintext %v\n", plaintext)
 	if string(plaintext) != string(message) {
 		t.Errorf("decrypted message did not match plaintext")
@@ -115,6 +116,112 @@ func TestBroadcastAttack(t *testing.T) {
 	m := BigIntCubeRootFloor(result)
 	if m.Cmp(mb) != 0 {
 		t.Errorf("the cube root result was incorrect")
+		return
+	}
+}
+
+func TestMontgomeryExtraReductionsCount(t *testing.T) {
+
+	priv, err := GenerateKey(512)
+
+	if err != nil {
+		t.Errorf("error in keygen\n")
+		return
+	}
+
+	message := []byte("What is my purpose? Pass the butter.\n")
+
+	ct, _ := encryptNoPaddingMontgomery(message, priv.PublicKey)
+	_, ex1 := decryptNoPaddingMontgomery(ct, priv)
+	t.Logf("Valid ciphertext did %v extra reductions\n", ex1)
+
+	p := priv.Primes[0]
+	q := priv.Primes[1]
+	p1 := new(big.Int).Sub(p, big.NewInt(1))
+	p2 := new(big.Int).Sub(p, big.NewInt(2))
+	p3 := new(big.Int).Sub(p, big.NewInt(3))
+	p4 := new(big.Int).Sub(p, big.NewInt(4))
+	_, ex2 := decryptNoPaddingMontgomery(p.Bytes(), priv)
+	_, ex3 := decryptNoPaddingMontgomery(q.Bytes(), priv)
+
+	_, exm1 := decryptNoPaddingMontgomery(p1.Bytes(), priv)
+	_, exm2 := decryptNoPaddingMontgomery(p2.Bytes(), priv)
+	_, exm3 := decryptNoPaddingMontgomery(p3.Bytes(), priv)
+	_, exm4 := decryptNoPaddingMontgomery(p4.Bytes(), priv)
+
+	t.Logf("Ciphertext of p did %v extra reductions\n", ex2)
+	t.Logf("Ciphertext of q did %v extra reductions\n", ex3)
+
+	t.Logf("Ciphertext of p-4 did %v extra reductions\n", exm4)
+	t.Logf("Ciphertext of p-3 did %v extra reductions\n", exm3)
+	t.Logf("Ciphertext of p-2 did %v extra reductions\n", exm2)
+	t.Logf("Ciphertext of p-1 did %v extra reductions\n", exm1)
+
+}
+
+//TestUnpaddedMessageRecovery is a test for Cryptopals Set 6 Challenge 41
+func TestUnpaddedMessageRecovery(t *testing.T) {
+
+	priv, err := GenerateKey(512)
+
+	dupes := make(map[string]bool)
+	decryptNoDupes := func(ct []byte) (pt []byte, err error) {
+		if dupes[string(ct)] {
+			return ct, fmt.Errorf("duplicate detected!")
+		} else {
+			dupes[string(ct)] = true
+			return DecryptNoPadding(ct, priv), nil
+		}
+	}
+
+	secretMessage := []byte("I hope no one reads this!")
+	secretCiphertext := EncryptNoPadding(secretMessage, priv.PublicKey)
+
+	sm1, err := decryptNoDupes(secretCiphertext)
+
+	if err != nil {
+		t.Errorf("failed to decrypt initial ciphertext")
+		return
+	}
+
+	if string(sm1) != string(secretMessage) {
+		t.Errorf("failed to properly decrypt ciphertext")
+		return
+	}
+
+	//Now the attacker has the ciphertext! Oh no!
+	_, err = decryptNoDupes(secretCiphertext)
+	if err == nil {
+		t.Errorf("the \"server\" failed to detect a dupe ciphertext")
+		return
+	}
+
+	//create ((s**e mod n) c) mod n
+	//where s is a random integer between 1 and n. here, s is 42.
+	c := new(big.Int).SetBytes(secretCiphertext)
+	s := big.NewInt(42)
+	e := big.NewInt(priv.PublicKey.E)
+	n := priv.PublicKey.N
+	inverse := new(big.Int).ModInverse(s, n)
+	s = s.Exp(s, e, n)
+	s = s.Mul(s, c)
+	s = s.Mod(s, n)
+
+	sm3, err := decryptNoDupes(s.Bytes())
+
+	if err != nil {
+		t.Errorf("the server failed to decrypt our dupe ciphertext")
+		return
+	}
+
+	plaintext := new(big.Int).SetBytes(sm3)
+	plaintext = plaintext.Mul(plaintext, inverse)
+	plaintext = plaintext.Mod(plaintext, n)
+
+	if string(plaintext.Bytes()) != string(secretMessage) {
+		t.Errorf("the decryption of our secret message was wrong")
+		t.Logf("expected: %s\n", secretMessage)
+		t.Logf("result:   %s\n", sm3)
 		return
 	}
 }

@@ -20,12 +20,13 @@ type PrivateKey struct {
 	Primes    []*big.Int
 }
 
-//EncryptNoPaddingMontgomery encrypts the supplied plaintext byte slice using the supplied public key.
-//EncryptNoPaddingMontgomery does not pad the plaintext prior to encryption and uses a non-blinded
+//encryptNoPaddingMontgomery encrypts the supplied plaintext byte slice using the supplied public key.
+//encryptNoPaddingMontgomery does not pad the plaintext prior to encryption and uses a non-blinded
 //Montgomery exponentiation optimization which can leak information about the private key.
-func EncryptNoPaddingMontgomery(plaintext []byte, publicKey *PublicKey) (ciphertext []byte) {
+//extra is the number of "extra reductions" that were done over the exponentiation operation.
+func encryptNoPaddingMontgomery(plaintext []byte, publicKey *PublicKey) (ciphertext []byte, extra int) {
 	num := new(big.Int).SetBytes(plaintext)
-	ct, _ := badbig.MontgomeryExp(num, big.NewInt(publicKey.E), publicKey.N)
+	ct, extra := badbig.MontgomeryExp(num, big.NewInt(publicKey.E), publicKey.N)
 	ciphertext = ct.Bytes()
 	return
 }
@@ -39,13 +40,14 @@ func EncryptNoPadding(plaintext []byte, publicKey *PublicKey) (ciphertext []byte
 	return
 }
 
-//DecryptNoPaddingMontgomery decrypts the supplied ciphertext using the supplied PrivateKey.
-//DecryptNoPaddingMontgomery does not validate or strip off any form of padding and uses a non-blinded
+//decryptNoPaddingMontgomery decrypts the supplied ciphertext using the supplied PrivateKey.
+//decryptNoPaddingMontgomery does not validate or strip off any form of padding and uses a non-blinded
 //Montgomery exponentiation optimization which can leak information about the private key.
-func DecryptNoPaddingMontgomery(ciphertext []byte, privateKey *PrivateKey) (plaintext []byte) {
+//extra is the number of "extra reductions" that were done over the exponentiation operation.
+func decryptNoPaddingMontgomery(ciphertext []byte, privateKey *PrivateKey) (plaintext []byte, extra int) {
 	num := new(big.Int).SetBytes(ciphertext)
 	N := privateKey.PublicKey.N
-	pt, _ := badbig.MontgomeryExp(num, privateKey.D, N)
+	pt, extra := badbig.MontgomeryExp(num, privateKey.D, N)
 	plaintext = pt.Bytes()
 	return
 }
