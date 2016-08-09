@@ -1,6 +1,7 @@
 package rsa
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"log"
 	"math/big"
@@ -32,7 +33,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	log.Printf("ciphertext %v\n", ciphertext)
 	plaintext := DecryptNoPadding(ciphertext, priv)
 	log.Printf("plaintext %v\n", plaintext)
-	if string(plaintext) != string(message) {
+
+	if new(big.Int).SetBytes(plaintext).Cmp(new(big.Int).SetBytes(message)) != 0 {
 		t.Errorf("decrypted message did not match plaintext")
 		return
 	}
@@ -58,7 +60,7 @@ func TestEncryptDecryptMontgomery(t *testing.T) {
 	log.Printf("ciphertext %v\n", ciphertext)
 	plaintext, _ := decryptNoPaddingMontgomery(ciphertext, priv)
 	log.Printf("plaintext %v\n", plaintext)
-	if string(plaintext) != string(message) {
+	if new(big.Int).SetBytes(plaintext).Cmp(new(big.Int).SetBytes(message)) != 0 {
 		t.Errorf("decrypted message did not match plaintext")
 		return
 	}
@@ -222,6 +224,62 @@ func TestUnpaddedMessageRecovery(t *testing.T) {
 		t.Errorf("the decryption of our secret message was wrong")
 		t.Logf("expected: %s\n", secretMessage)
 		t.Logf("result:   %s\n", sm3)
+		return
+	}
+}
+
+func TestRSASign(t *testing.T) {
+
+	priv, err := GenerateKey(512)
+
+	if err != nil {
+		t.Errorf("failed to generate key")
+		return
+	}
+
+	message := []byte("thingy")
+	sig := SignPKCS1v15(message, priv)
+
+	err = verifyPKCS1v15Insecure(message, sig, priv.PublicKey)
+
+	if err != nil {
+		t.Errorf("RSA signature validation failed unecessarily")
+		return
+	}
+
+}
+
+//TestSmallExponentSignatureForgery is a test for Cryptopals Set 6 Challenge 42
+func TestSmallExponentSignatureForgery(t *testing.T) {
+
+	priv, err := GenerateKey(1024)
+
+	if err != nil {
+		t.Errorf("failed to generate key")
+		return
+	}
+
+	modulusSize := 128
+	sha1Prefix := []byte{0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14}
+	shortPKCS := []byte{0x00, 0x01, 0xff, 0x00}
+	message := []byte("hi mom")
+	messageDigest := sha1.Sum(message)
+	numZeros := modulusSize - len(sha1Prefix) - len(shortPKCS) - len(messageDigest)
+	zeros := make([]byte, numZeros)
+	forgery := append(shortPKCS, sha1Prefix...)
+	forgery = append(forgery, messageDigest[:]...)
+	forgery = append(forgery, zeros...)
+	forgeryNum := new(big.Int).SetBytes(forgery)
+	forgeryNum = BigIntCubeRootFloor(forgeryNum)
+	//Grr... I needed the cube root ceiling here. Adding one!
+	forgeryNum = forgeryNum.Add(forgeryNum, big.NewInt(1))
+	forgery = forgeryNum.Bytes()
+
+	//check the forged signature
+	err = verifyPKCS1v15Insecure(message, forgery, priv.PublicKey)
+
+	if err != nil {
+		t.Errorf("RSA signature validation failed unecessarily")
 		return
 	}
 }
