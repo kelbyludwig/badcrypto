@@ -136,3 +136,14 @@ func Verify(message []byte, r, s *big.Int, publicKey *PublicKey) error {
 	}
 
 }
+
+func RecoverPrivateKeyFromSubKey(message []byte, r, s, k *big.Int, publicKey *PublicKey) (x *big.Int) {
+	msgDigest := sha1.Sum(message)
+	msgBig := new(big.Int).SetBytes(msgDigest[:])
+	rinv := new(big.Int).ModInverse(r, publicKey.Q)
+	x = new(big.Int).Mul(s, k)
+	x = x.Sub(x, msgBig)
+	x = x.Mul(x, rinv)
+	x = x.Mod(x, publicKey.Q)
+	return
+}
