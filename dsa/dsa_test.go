@@ -1,9 +1,11 @@
 package dsa
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"fmt"
 	"math/big"
+	"os"
 	"testing"
 )
 
@@ -80,4 +82,80 @@ func TestRecoverPrivateKeyFromSubKey(t *testing.T) {
 	}
 	t.Errorf("did not find matching private key")
 
+}
+
+//TestDSANonceReuse is a test for Cryptopals Set 6 Challenge 44
+func TestDSANonceReuse(t *testing.T) {
+
+	priv, err := GenerateKey()
+
+	if err != nil {
+		t.Errorf("error generating keypair")
+		return
+	}
+
+	file, err := os.Open("44.txt")
+	defer file.Close()
+	if err != nil {
+		t.Errorf("failed to open 44.txt")
+		return
+	}
+
+	scanner := bufio.NewScanner(file)
+	i := 0
+	var msgs [][]byte
+	var ss, rs, ms []*big.Int
+	hex2bn := func(s string) *big.Int {
+		b, _ := new(big.Int).SetString(s, 16)
+		return b
+	}
+	dec2bn := func(s string) *big.Int {
+		b, _ := new(big.Int).SetString(s, 10)
+		return b
+	}
+	for scanner.Scan() {
+		line := scanner.Text()
+		i += 1
+		switch i % 4 {
+		case 1:
+			msg := line[5:]
+			msgs = append(msgs, []byte(msg))
+		case 2:
+			s := line[3:]
+			ss = append(ss, dec2bn(s))
+		case 3:
+			r := line[3:]
+			rs = append(rs, dec2bn(r))
+		case 0:
+			m := line[3:]
+			ms = append(ms, hex2bn(m))
+		}
+	}
+
+	if len(ss) != len(rs) || len(rs) != len(ms) {
+		t.Errorf("lengths of signatures read from file were wrong")
+		return
+	}
+
+	for i, x := range ms {
+		for j, y := range ms {
+			//messages were the same. lets skip.
+			if x.Cmp(y) == 0 {
+				continue
+			}
+			sinv := new(big.Int).Sub(ss[i], ss[j])
+			sinv = sinv.ModInverse(sinv, priv.PublicKey.Q)
+			k := new(big.Int).Sub(ms[i], ms[j])
+			k = k.Mul(k, sinv)
+			k = k.Mod(k, priv.PublicKey.Q)
+			x := RecoverPrivateKeyFromSubKey(msgs[i], rs[i], ss[i], k, priv.PublicKey)
+			xHex := fmt.Sprintf("%x", x)
+			xDigest := sha1.Sum([]byte(xHex))
+			xHex = fmt.Sprintf("%x", xDigest)
+			if xHex == "ca8f6f7c66fa362d40760d135b763eb8527d3d52" {
+				t.Logf("Recovered private key: %x\n", x)
+				return
+			}
+		}
+	}
 }
