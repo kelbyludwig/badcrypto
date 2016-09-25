@@ -14,10 +14,23 @@ const BString = "BD0C61512C692C0CB6D041FA01BB152D4916A1E77AF46AE105393011BAF3896
 const uString = "CE38B9593487DA98554ED47D70A7AE5F462EF019"
 const pmkString = "B0DC82BABCF30674AE450C0287745E7990A3381F63B387AAF271A10D233861E359B48220F7C4693C9AE12B0A6F67809F0876E2D013800D6C41BB59B6D5979B5C00A172B4A2A5903A0BDCAF8A709585EB2AFAFA8F3499B200210DCC1F10EB33943CD67FC88A2F39A4BE5BEC4EC0A3212DC346D7E474B29EDE8A469FFECA686E5A"
 
-func TestPremasterSecret(t *testing.T) {
-	t.Errorf("srp: not yet implemented\n")
-}
-
 func TestRegistration(t *testing.T) {
-	t.Errorf("srp: not yet implemented\n")
+	client, err := NewClient()
+
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+
+	err = client.Register(I, P)
+
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+
+	if client.server.username != I {
+		t.Errorf("srp: username did not match expected result")
+		return
+	}
 }
