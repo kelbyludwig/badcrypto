@@ -34,3 +34,25 @@ func TestRegistration(t *testing.T) {
 		return
 	}
 }
+
+func TestPMSGeneration(t *testing.T) {
+	client, err := NewClient()
+
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+
+	err = client.Register(I, P)
+
+	if err != nil {
+		t.Errorf("%v\n", err)
+		return
+	}
+
+	client.ClientHello()
+	client.ClientKeyExchange()
+
+	t.Logf("Client PMS: %0x\n", client.pms)
+	t.Logf("Server PMS: %0x\n", client.server.pms)
+}

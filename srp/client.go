@@ -28,6 +28,7 @@ type Client struct {
 	x            []byte
 	ephemPrivate []byte
 	ephemPublic  []byte
+	pms          []byte
 }
 
 func init() {
@@ -108,4 +109,32 @@ func (c *Client) Register(username, password string) error {
 	c.server.Register(username, salt, v.Bytes())
 	return nil
 
+}
+
+func (c *Client) ClientHello() (salt, serverEphemPublic []byte) {
+	return c.server.clientHelloResponse()
+}
+
+func (c *Client) ClientKeyExchange() {
+
+	c.server.clientKeyExchangeResponse(c.ephemPublic)
+	_, serverEphemPublic := c.ClientHello()
+
+	h := sha1.New()
+	io.WriteString(h, string(pad(c.ephemPublic)))
+	io.WriteString(h, string(serverEphemPublic))
+	u := h.Sum(nil)
+
+	h = sha1.New()
+	//NOTE(kkl): n.Bytes() may truncate lest-most zeros. The RFC doesn't specify whether this is padded.
+	io.WriteString(h, string(n.Bytes()))
+	io.WriteString(h, string(pad(g.Bytes())))
+	k := h.Sum(nil)
+
+	c.pms = c.ComputePremasterSecret(k[:], c.x, u[:], serverEphemPublic)
+}
+
+func (c *Client) Finished() error {
+	//Do a MAC check to verify same pms
+	return fmt.Errorf("srp: not implemented")
 }
