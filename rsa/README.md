@@ -4,7 +4,7 @@
 
 * Putting numbers in Montgomery can improve the performance of algorithms that rely on many modular multiplication operations (e.g. modular exponentiation).
 
-* By investing some up-front costs of putting numbers in Montgomery form, the subsequent multiplcation and modular reduction steps will be more efficient.
+* By investing some up-front costs of putting numbers in Montgomery form, the subsequent multiplication and modular reduction steps will be more efficient.
 
 #### References
 
