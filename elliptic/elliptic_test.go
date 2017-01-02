@@ -148,3 +148,21 @@ func TestPreComputedScalarMult(t *testing.T) {
 		return
 	}
 }
+
+func TestECDH(t *testing.T) {
+
+	bobK, _ := new(big.Int).SetString("15", 10)
+	aliceK, _ := new(big.Int).SetString("16", 10)
+
+	bobPubX, bobPubY := curve.ScalarBaseMult(bobK.Bytes())
+	alicePubX, alicePubY := curve.ScalarBaseMult(aliceK.Bytes())
+
+	aliceSharedX, aliceSharedY := curve.ScalarMult(bobPubX, bobPubY, aliceK.Bytes())
+	bobSharedX, bobSharedY := curve.ScalarMult(alicePubX, alicePubY, bobK.Bytes())
+
+	if !curve.PointEquals(aliceSharedX, aliceSharedY, bobSharedX, bobSharedY) {
+		t.Errorf("shared secrets did not match")
+		return
+	}
+
+}

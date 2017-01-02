@@ -54,7 +54,6 @@ func (curve shortWeierstrassCurve) IsOnCurve(x, y *big.Int) bool {
 }
 
 func (curve shortWeierstrassCurve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) {
-
 	if curve.isZeroPoint(x1, y1) {
 		x = new(big.Int).SetBytes(x2.Bytes())
 		y = new(big.Int).SetBytes(y2.Bytes())
@@ -133,17 +132,14 @@ func (curve shortWeierstrassCurve) ScalarBaseMult(k []byte) (x, y *big.Int) {
 //isZeroPoint will return true if the supplied (x,y) values are the "zero"
 //value on a curve.
 func (curve shortWeierstrassCurve) isZeroPoint(x, y *big.Int) bool {
-
 	one := big.NewInt(1)
 	zero := big.NewInt(0)
 	return curve.PointEquals(x, y, zero, one)
-
 }
 
 //PointEquals will return true if the supplied points (x1, y1) and (x2, y2) are
 //equal on the given curve.
 func (curve shortWeierstrassCurve) PointEquals(x1, y1, x2, y2 *big.Int) bool {
-
 	//ensure the points are reduced mod P
 	x1r := new(big.Int).Mod(x1, curve.P)
 	y1r := new(big.Int).Mod(y1, curve.P)
