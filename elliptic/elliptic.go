@@ -2,6 +2,7 @@ package elliptic
 
 import (
 	"crypto/elliptic"
+	"crypto/rand"
 	"math/big"
 )
 
@@ -156,5 +157,23 @@ func (curve shortWeierstrassCurve) PointEquals(x1, y1, x2, y2 *big.Int) bool {
 func (curve shortWeierstrassCurve) invertPoint(x, y *big.Int) (xi, yi *big.Int) {
 	xi = new(big.Int).SetBytes(x.Bytes())
 	yi = new(big.Int).Sub(curve.P, y)
+	return
+}
+
+func (curve shortWeierstrassCurve) randomPoint() (x, y *big.Int) {
+	for {
+		buf := make([]byte, len(curve.P.Bytes()))
+		rand.Read(buf)
+		x = new(big.Int).SetBytes(buf)
+		rhs := new(big.Int).Exp(x, three, curve.P)
+		ax := new(big.Int).Mul(curve.A, x)
+		rhs = rhs.Add(rhs, ax)
+		rhs = rhs.Add(rhs, curve.B)
+		rhs = rhs.Mod(rhs, curve.P)
+		y = new(big.Int).ModSqrt(rhs, curve.P)
+		if y != nil {
+			break
+		}
+	}
 	return
 }

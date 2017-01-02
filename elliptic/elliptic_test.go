@@ -166,3 +166,14 @@ func TestECDH(t *testing.T) {
 	}
 
 }
+
+func TestRandomPoint(t *testing.T) {
+
+	for i := 0; i < 100; i++ {
+		rx, ry := curve.randomPoint()
+		if !curve.IsOnCurve(rx, ry) {
+			t.Errorf("generated random point was not on the curve")
+			return
+		}
+	}
+}
