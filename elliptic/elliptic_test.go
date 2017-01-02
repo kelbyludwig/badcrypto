@@ -90,3 +90,18 @@ func TestScalarBaseMult(t *testing.T) {
 		return
 	}
 }
+
+func TestIsOnCurve(t *testing.T) {
+
+	if !curve.IsOnCurve(gx, gy) {
+		t.Errorf("IsOnCurve failed to identify the base point on the curve")
+		return
+	}
+
+	gx1 := new(big.Int).Add(gx, one)
+
+	if curve.IsOnCurve(gx1, gy) {
+		t.Errorf("IsOnCurve failed to identify an off-curve point")
+		return
+	}
+}

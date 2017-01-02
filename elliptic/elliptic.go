@@ -39,7 +39,17 @@ func (curve shortWeierstrassCurve) Params() *elliptic.CurveParams {
 }
 
 func (curve shortWeierstrassCurve) IsOnCurve(x, y *big.Int) bool {
-	panic("not implemented")
+	//y^2 = x^3 + a*x + b
+	lhs := new(big.Int).Exp(y, two, curve.P)
+	rhs := new(big.Int).Exp(x, three, curve.P)
+	ax := new(big.Int).Mul(curve.A, x)
+	rhs = rhs.Add(rhs, ax)
+	rhs = rhs.Add(rhs, curve.B)
+	rhs = rhs.Mod(rhs, curve.P)
+
+	if lhs.Cmp(rhs) == 0 {
+		return true
+	}
 	return false
 }
 
