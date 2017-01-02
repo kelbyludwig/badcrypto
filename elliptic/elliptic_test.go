@@ -48,6 +48,13 @@ func TestCurveInverse(t *testing.T) {
 		t.Errorf("inverting the inverse did not results in the same point")
 		return
 	}
+
+	zx, zy := curve.Add(x0, y0, gx, gy)
+
+	if !curve.PointEquals(zx, zy, zero, one) {
+		t.Errorf("adding the inverse did not result in 0")
+		return
+	}
 }
 
 func TestCurveDouble(t *testing.T) {
