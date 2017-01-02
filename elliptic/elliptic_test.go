@@ -79,3 +79,14 @@ func TestScalarMult(t *testing.T) {
 	}
 
 }
+
+func TestScalarBaseMult(t *testing.T) {
+
+	gx2, gy2 := curve.ScalarBaseMult(two.Bytes())
+	gxd, gyd := curve.Double(gx, gy)
+
+	if !curve.PointEquals(gx2, gy2, gxd, gyd) {
+		t.Errorf("scalar base multiplication by 2 did not result in the same point as doubling")
+		return
+	}
+}

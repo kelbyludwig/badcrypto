@@ -119,8 +119,7 @@ func (curve shortWeierstrassCurve) ScalarMult(x1, y1 *big.Int, k []byte) (x, y *
 }
 
 func (curve shortWeierstrassCurve) ScalarBaseMult(k []byte) (x, y *big.Int) {
-	panic("not implemented")
-	return zero, zero
+	return curve.ScalarMult(curve.Gx, curve.Gy, k)
 }
 
 //isZeroPoint will return true if the supplied (x,y) values are the "zero"
