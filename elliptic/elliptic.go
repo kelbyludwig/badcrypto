@@ -35,10 +35,13 @@ func NewCurve(a, b, p, gx, gy *big.Int) (curve shortWeierstrassCurve) {
 	return curve
 }
 
+//Params returns the curves CurveParams struct.
 func (curve shortWeierstrassCurve) Params() *elliptic.CurveParams {
 	return curve.CurveParams
 }
 
+//IsOnCurve will return true if the supplied point (x, y) is a valid point
+//for the curve and false otherwise.
 func (curve shortWeierstrassCurve) IsOnCurve(x, y *big.Int) bool {
 	//y^2 = x^3 + a*x + b
 	lhs := new(big.Int).Exp(y, two, curve.P)
@@ -54,6 +57,7 @@ func (curve shortWeierstrassCurve) IsOnCurve(x, y *big.Int) bool {
 	return false
 }
 
+//Add implements generic Short Weierstrass curve addition.
 func (curve shortWeierstrassCurve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) {
 	if curve.isZeroPoint(x1, y1) {
 		x = new(big.Int).SetBytes(x2.Bytes())
@@ -107,10 +111,12 @@ func (curve shortWeierstrassCurve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) 
 	return
 }
 
+//Double returns the supplied point doubled.
 func (curve shortWeierstrassCurve) Double(x1, y1 *big.Int) (x, y *big.Int) {
 	return curve.Add(x1, y1, x1, y1)
 }
 
+//ScalarMult returns k*(x1, y1).
 func (curve shortWeierstrassCurve) ScalarMult(x1, y1 *big.Int, k []byte) (x, y *big.Int) {
 	K := new(big.Int).SetBytes(k)
 	Qx := big.NewInt(0)
@@ -126,6 +132,8 @@ func (curve shortWeierstrassCurve) ScalarMult(x1, y1 *big.Int, k []byte) (x, y *
 	return Qx, Qy
 }
 
+//ScalarBaseMult returns k*(x1, y1) where (x1, y1) is the base point for the
+//supplied curve.
 func (curve shortWeierstrassCurve) ScalarBaseMult(k []byte) (x, y *big.Int) {
 	return curve.ScalarMult(curve.Gx, curve.Gy, k)
 }
@@ -160,6 +168,7 @@ func (curve shortWeierstrassCurve) invertPoint(x, y *big.Int) (xi, yi *big.Int) 
 	return
 }
 
+//randomPoint generates a random point on the given curve.
 func (curve shortWeierstrassCurve) randomPoint() (x, y *big.Int) {
 	for {
 		buf := make([]byte, len(curve.P.Bytes()))
