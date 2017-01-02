@@ -113,17 +113,15 @@ func (curve shortWeierstrassCurve) Double(x1, y1 *big.Int) (x, y *big.Int) {
 
 func (curve shortWeierstrassCurve) ScalarMult(x1, y1 *big.Int, k []byte) (x, y *big.Int) {
 	K := new(big.Int).SetBytes(k)
-	Nx := new(big.Int).SetBytes(x1.Bytes())
-	Ny := new(big.Int).SetBytes(y1.Bytes())
 	Qx := big.NewInt(0)
 	Qy := big.NewInt(1)
 
 	for i := K.BitLen(); i >= 0; i-- {
 		bit := K.Bit(i)
+		Qx, Qy = curve.Double(Qx, Qy)
 		if bit == 1 {
-			Qx, Qy = curve.Add(Qx, Qy, Nx, Ny)
+			Qx, Qy = curve.Add(Qx, Qy, x1, y1)
 		}
-		Nx, Ny = curve.Double(Nx, Ny)
 	}
 	return Qx, Qy
 }

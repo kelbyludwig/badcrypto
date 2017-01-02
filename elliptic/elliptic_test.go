@@ -10,6 +10,10 @@ var b *big.Int
 var p *big.Int
 var gx *big.Int
 var gy *big.Int
+var order *big.Int
+var hund *big.Int
+var hundX *big.Int
+var hundY *big.Int
 var curve shortWeierstrassCurve
 
 func init() {
@@ -18,6 +22,10 @@ func init() {
 	p, _ = new(big.Int).SetString("233970423115425145524320034830162017933", 10)
 	gx, _ = new(big.Int).SetString("182", 10)
 	gy, _ = new(big.Int).SetString("85518893674295321206118380980485522083", 10)
+	order, _ = new(big.Int).SetString("29246302889428143187362802287225875743", 10)
+	hund, _ = new(big.Int).SetString("100", 10)
+	hundX, _ = new(big.Int).SetString("12246423879899346038895890356990169239", 10)
+	hundY, _ = new(big.Int).SetString("58231960761567435246734586214813749649", 10)
 	curve = NewCurve(a, b, p, gx, gy)
 }
 
@@ -96,6 +104,7 @@ func TestScalarBaseMult(t *testing.T) {
 		t.Errorf("scalar base multiplication by 2 did not result in the same point as doubling")
 		return
 	}
+
 }
 
 func TestIsOnCurve(t *testing.T) {
@@ -109,6 +118,33 @@ func TestIsOnCurve(t *testing.T) {
 
 	if curve.IsOnCurve(gx1, gy) {
 		t.Errorf("IsOnCurve failed to identify an off-curve point")
+		return
+	}
+}
+
+func TestOrderOfBasePoint(t *testing.T) {
+
+	x, y := curve.ScalarBaseMult(order.Bytes())
+	if !curve.PointEquals(x, y, zero, one) {
+		t.Errorf("multiplying our base point by the order of the curve did not return 0")
+		t.Errorf("result: (%d, %d)\n", x, y)
+	}
+}
+
+func TestPreComputedScalarMult(t *testing.T) {
+
+	gxh, gyh := curve.ScalarBaseMult(hund.Bytes())
+
+	if !curve.PointEquals(gxh, gyh, hundX, hundY) {
+		t.Errorf("point did not match the pre-computed point")
+		t.Logf("result: (%d, %d)\n", gxh, gyh)
+		return
+	}
+
+	gxo, gyo := curve.ScalarBaseMult(order.Bytes())
+	if !curve.PointEquals(gxo, gyo, zero, one) {
+		t.Errorf("scalar multiplication by the order did not return 0")
+		t.Logf("result: (%d, %d)\n", gxo, gyo)
 		return
 	}
 }
