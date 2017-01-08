@@ -9,7 +9,10 @@ type Factors map[int64]int
 var zero *big.Int = big.NewInt(0)
 var one *big.Int = big.NewInt(1)
 
-const int64Max int64 = 9223372036854775807
+const Int64Max int64 = 9223372036854775807
+
+//TODO(kkl): Functions to add here: FactorRange(num *big.Int, min, max int64), Factor(num *big.Int).
+//			 It will be useful to start factoring from a partially factored `rest` starting from `min`.
 
 //Factor takes in a bignum and returns a map of its factors. The result is a
 //map from with prime factor keys and the prime factor's power as the value.
@@ -22,8 +25,8 @@ func Factor(num *big.Int, max int64) (factors Factors, rest *big.Int) {
 	bigFact := new(big.Int)
 	modResult := new(big.Int)
 
-	if max > int64Max {
-		max = int64Max
+	if max > Int64Max {
+		max = Int64Max
 	}
 
 	var fact int64
