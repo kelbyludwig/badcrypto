@@ -8,47 +8,53 @@ import (
 
 var IndexNotRecoveredErr error = fmt.Errorf("index not found")
 
-func PohligHellman(elem, gen, modulus *big.Int) (index *big.Int, err error) {
+//PohligHellman will solve for the index of `elem` using the generator `gen` for the
+//group of order `order`.
+func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err error) {
 
-	ord := new(big.Int).Sub(modulus, big.NewInt(1))
-	bigPow := new(big.Int)
-	subElem := new(big.Int)
-	subGen := new(big.Int)
-
+	ord := new(big.Int).SetBytes(order.Bytes())
+	factors, _ := Factor(ord, 65536)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
 
-	factors, _ := Factor(ord, Int64Max)
-
-	for factor, pow := range factors {
-		primePower := new(big.Int).Exp(big.NewInt(factor), big.NewInt(int64(pow)), nil)
-		bigPow = bigPow.Div(ord, primePower)
-		subElem = subElem.Exp(elem, bigPow, modulus)
-		subGen = subGen.Exp(gen, bigPow, modulus)
-		index, err := ComputeIndex(subElem, subGen, modulus)
+	//mmo := new(big.Int).Sub(modulus, one)
+	//TODO(kkl): Update this to cover repeat prime factors.
+	for factor, _ := range factors {
+		primeFactor := big.NewInt(int64(factor))
+		exp := new(big.Int).Div(ord, primeFactor)
+		sElem := new(big.Int).Exp(elem, exp, modulus)
+		sGen := new(big.Int).Exp(gen, exp, modulus)
+		ind, err := ComputeIndexWithinRange(sElem, sGen, modulus, zero, primeFactor)
 		if err != nil {
-			return index, err
+			continue
 		}
-		indices = append(indices, index)
-		moduli = append(moduli, primePower)
+		indices = append(indices, ind)
+		moduli = append(moduli, primeFactor)
+	}
+
+	if len(indices) == 0 || len(moduli) == 0 {
+		err = IndexNotRecoveredErr
+		return nil, err
 	}
 
 	index, err = CRT(indices, moduli)
 	if err != nil {
 		err = IndexNotRecoveredErr
-		return
+		return nil, err
 	}
-	return index, err
+
+	return index, nil
+
 }
 
 //ComputeIndexWithinRange will solve for x in the equation gen^x = elem = (mod
 //modulus). If the index does not fall within the specified range, this
 //function will return an error.
 func ComputeIndexWithinRange(elem, gen, modulus, min, max *big.Int) (index *big.Int, err error) {
+
 	el := big.NewInt(1)
-	one := big.NewInt(1)
 	index = new(big.Int).SetBytes(min.Bytes())
-	for index.Cmp(max) != 0 {
+	for index.Cmp(max) != 1 {
 		el = el.Exp(gen, index, modulus)
 		if el.Cmp(elem) == 0 {
 			return
@@ -61,7 +67,6 @@ func ComputeIndexWithinRange(elem, gen, modulus, min, max *big.Int) (index *big.
 //RandomSubgroupElement takes a prime and a factor of p-1 and returns an
 //element of a subgroup of order `factor`.
 func RandomSubgroupElement(prime, factor *big.Int) (elem *big.Int) {
-	one := big.NewInt(1)
 	rand := rand.New(rand.NewSource(99))
 	for {
 		elem = new(big.Int).Rand(rand, prime)
@@ -74,17 +79,16 @@ func RandomSubgroupElement(prime, factor *big.Int) (elem *big.Int) {
 	}
 }
 
-//ComputeIndex will solve for x in the quation gen^x = elem (mod modudlus). If
+//ComputeIndex will solve for x in the quation gen^x = elem (mod order). If
 //the index is not found, this function will return an error.
 func ComputeIndex(elem, gen, modulus *big.Int) (index *big.Int, err error) {
-	one := big.NewInt(1)
-	return ComputeIndexWithinRange(elem, gen, modulus, one, modulus)
+	two := big.NewInt(2)
+	return ComputeIndexWithinRange(elem, gen, modulus, two, modulus)
 }
 
 //CRT will return the result of the chinese remainder thereom applied to the
 //supplied residues and respective moduli.
 func CRT(a, moduli []*big.Int) (*big.Int, error) {
-	var one = big.NewInt(1)
 	p := new(big.Int).Set(moduli[0])
 	for _, n1 := range moduli[1:] {
 		p.Mul(p, n1)
@@ -99,4 +103,74 @@ func CRT(a, moduli []*big.Int) (*big.Int, error) {
 		x.Add(&x, s.Mul(a[i], s.Mul(&s, &q)))
 	}
 	return x.Mod(&x, p), nil
+}
+
+// SqrtBig returns floor(sqrt(n)). It panics on n < 0.
+// Source: https://github.com/cznic/mathutil/blob/master/mathutil.go#L151
+func SqrtBig(n *big.Int) (x *big.Int) {
+	switch n.Sign() {
+	case -1:
+		panic(-1)
+	case 0:
+		return big.NewInt(0)
+	}
+
+	var px, nx big.Int
+	x = big.NewInt(0)
+	x.SetBit(x, n.BitLen()/2+1, 1)
+	for {
+		nx.Rsh(nx.Add(x, nx.Div(n, x)), 1)
+		if nx.Cmp(x) == 0 || nx.Cmp(&px) == 0 {
+			break
+		}
+		px.Set(x)
+		x.Set(&nx)
+	}
+	return
+
+}
+
+//BSGS uses Shank's Baby-Step Giant-Step algorithm to compute the discrete log
+//of `elem`.
+func BSGS(elem, gen, modulus *big.Int) (index *big.Int, err error) {
+
+	m := SqrtBig(modulus)
+	m = m.Add(m, big.NewInt(1))
+	lookup := make(map[string]*big.Int)
+
+	i := big.NewInt(1)
+	res := big.NewInt(1)
+
+	lookup["0"] = big.NewInt(1)
+	for i.Cmp(m) != 1 {
+		res = res.Mul(res, gen)
+		res = res.Mod(res, modulus)
+		if res.Cmp(zero) == 0 || res.Cmp(one) == 0 {
+			break
+		}
+		lookup[res.String()] = new(big.Int).Set(i)
+		i = i.Add(i, big.NewInt(1))
+	}
+	ginv := new(big.Int).ModInverse(gen, modulus)
+	ginv = ginv.Exp(ginv, m, modulus)
+	h := new(big.Int).Set(elem)
+	i = big.NewInt(0)
+
+	for i.Cmp(m) < 1 {
+
+		j, ok := lookup[h.String()]
+		if ok {
+			index = new(big.Int).Set(i)
+			index = index.Mul(index, m)
+			index = index.Add(index, j)
+			return
+		}
+		h = h.Mul(h, ginv)
+		h = h.Mod(h, modulus)
+		i = i.Add(i, big.NewInt(1))
+
+	}
+
+	return nil, IndexNotRecoveredErr
+
 }

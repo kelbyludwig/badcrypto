@@ -5,18 +5,40 @@ import (
 	"testing"
 )
 
+func TestCryptopals57(t *testing.T) {
+
+	//g, _ := new(big.Int).SetString("4565356397095740655436854503483826832136106141639563487732438195343690437606117828318042418238184896212352329118608100083187535033402010599512641674644143", 10)
+	//p, _ := new(big.Int).SetString("7199773997391911030609999317773941274322764333428698921736339643928346453700085358802973900485592910475480089726140708102474957429903531369589969318716771", 10)
+	//x, _ := new(big.Int).SetString("751699345113817921351405264898819572", 10)
+	//A, _ := new(big.Int).SetString("982459683069415175513312739702735463971070011724878329469725424964365076122094000771127132784175677820400822159509270013047484755753176549654608169804860", 10)
+	////q, _ := new(big.Int).SetString("236234353446506858198510045061214171961", 10)
+
+	//result, err := PohligHellman(A, g, p, new(big.Int).Sub(p, one))
+	//if err != nil {
+	//	t.Errorf("unexpected error occurred")
+	//	return
+	//}
+
+	//if result.Cmp(x) != 0 {
+	//	t.Errorf("recovered index did not match expected index")
+	//	t.Logf("result: %d\n", result)
+	//	t.Logf("expect: %d\n", x)
+	//	return
+	//}
+}
+
 func TestPohligHellman(t *testing.T) {
 
 	tests := []struct {
-		elem, gen, mod, expected *big.Int
+		elem, gen, mod, ord, expected *big.Int
 	}{
-		{big.NewInt(3), big.NewInt(7), big.NewInt(11), big.NewInt(4)},
-		{big.NewInt(100), big.NewInt(2), big.NewInt(101), big.NewInt(50)},
-		{big.NewInt(1572), big.NewInt(2), big.NewInt(3307), big.NewInt(789)},
+		{big.NewInt(3), big.NewInt(7), big.NewInt(11), big.NewInt(10), big.NewInt(4)},
+		{big.NewInt(1572), big.NewInt(2), big.NewInt(3307), big.NewInt(3306), big.NewInt(789)},
+		{big.NewInt(298403), big.NewInt(2), big.NewInt(510529), big.NewInt(510528), big.NewInt(3500)},
 	}
 
 	for _, te := range tests {
-		result, err := PohligHellman(te.elem, te.gen, te.mod)
+		result, err := PohligHellman(te.elem, te.gen, te.mod, te.ord)
 		if err != nil {
 			t.Errorf("unexpected error occurred")
 		}
@@ -89,6 +111,28 @@ func TestComputeIndexWithinRange(t *testing.T) {
 	}
 	for _, te := range tests {
 		index, err := ComputeIndexWithinRange(te.elem, te.gen, te.mod, te.min, te.max)
+		if err != nil {
+			t.Errorf("index not recovered")
+			return
+		}
+		if te.expected.Cmp(index) != 0 {
+			t.Errorf("expected index not returned: %d != %d", index, te.expected)
+			return
+		}
+	}
+}
+
+func TestBSGS(t *testing.T) {
+	tests := []struct {
+		elem, gen, mod, expected *big.Int
+	}{
+		{big.NewInt(6), big.NewInt(3), big.NewInt(31), big.NewInt(25)},
+		{big.NewInt(3), big.NewInt(7), big.NewInt(11), big.NewInt(4)},
+		{big.NewInt(100), big.NewInt(2), big.NewInt(101), big.NewInt(50)},
+		{big.NewInt(1572), big.NewInt(2), big.NewInt(3307), big.NewInt(789)},
+	}
+	for _, te := range tests {
+		index, err := BSGS(te.elem, te.gen, te.mod)
 		if err != nil {
 			t.Errorf("index not recovered")
 			return
