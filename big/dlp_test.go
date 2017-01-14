@@ -7,24 +7,35 @@ import (
 
 func TestCryptopals57(t *testing.T) {
 
-	//g, _ := new(big.Int).SetString("4565356397095740655436854503483826832136106141639563487732438195343690437606117828318042418238184896212352329118608100083187535033402010599512641674644143", 10)
-	//p, _ := new(big.Int).SetString("7199773997391911030609999317773941274322764333428698921736339643928346453700085358802973900485592910475480089726140708102474957429903531369589969318716771", 10)
-	//x, _ := new(big.Int).SetString("751699345113817921351405264898819572", 10)
-	//A, _ := new(big.Int).SetString("982459683069415175513312739702735463971070011724878329469725424964365076122094000771127132784175677820400822159509270013047484755753176549654608169804860", 10)
-	////q, _ := new(big.Int).SetString("236234353446506858198510045061214171961", 10)
+	g, _ := new(big.Int).SetString("4565356397095740655436854503483826832136106141639563487732438195343690437606117828318042418238184896212352329118608100083187535033402010599512641674644143", 10)
+	p, _ := new(big.Int).SetString("7199773997391911030609999317773941274322764333428698921736339643928346453700085358802973900485592910475480089726140708102474957429903531369589969318716771", 10)
+	x, _ := new(big.Int).SetString("751699345113817921351405264898819572", 10)
+	A, _ := new(big.Int).SetString("982459683069415175513312739702735463971070011724878329469725424964365076122094000771127132784175677820400822159509270013047484755753176549654608169804860", 10)
+	q, _ := new(big.Int).SetString("236234353446506858198510045061214171961", 10)
 
-	//result, err := PohligHellman(A, g, p, new(big.Int).Sub(p, one))
-	//if err != nil {
-	//	t.Errorf("unexpected error occurred")
-	//	return
-	//}
-
-	//if result.Cmp(x) != 0 {
-	//	t.Errorf("recovered index did not match expected index")
-	//	t.Logf("result: %d\n", result)
-	//	t.Logf("expect: %d\n", x)
-	//	return
-	//}
+	oracler := func(mod, x *big.Int) func(*big.Int) *big.Int {
+		return func(g *big.Int) *big.Int {
+			return new(big.Int).Exp(g, x, mod)
+		}
+	}
+	tests := []struct {
+		elem, gen, mod, ord, expected *big.Int
+	}{
+		{big.NewInt(3), big.NewInt(7), big.NewInt(11), big.NewInt(10), big.NewInt(4)},
+		{big.NewInt(1572), big.NewInt(2), big.NewInt(3307), big.NewInt(3306), big.NewInt(789)},
+		{big.NewInt(298403), big.NewInt(2), big.NewInt(510529), big.NewInt(510528), big.NewInt(3500)},
+		{A, g, p, q, x},
+	}
+	for _, te := range tests {
+		oracle := oracler(te.mod, te.expected)
+		result, err := PohligHellmanOnline(te.mod, oracle)
+		if err != nil {
+			t.Errorf("unexpected error occurred")
+		}
+		if result.Cmp(te.expected) != 0 {
+			t.Errorf("incorrect result returned: %d != %d^%d %% %d == %d", result, te.gen, te.expected, te.mod, te.elem)
+		}
+	}
 }
 
 func TestPohligHellman(t *testing.T) {
