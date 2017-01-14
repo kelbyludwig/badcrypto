@@ -1,0 +1,188 @@
+package elliptic
+
+import (
+	"crypto/elliptic"
+	"crypto/rand"
+	"math/big"
+)
+
+var zero *big.Int = big.NewInt(0)
+var one *big.Int = big.NewInt(1)
+var two *big.Int = big.NewInt(2)
+var three *big.Int = big.NewInt(3)
+
+type shortWeierstrassCurve struct {
+	*elliptic.CurveParams
+	A *big.Int
+}
+
+//NewCurve creates a new curve that implements the `elliptic.Curve` interface
+//with custom parameters.
+func NewCurve(a, b, p, gx, gy *big.Int) (curve shortWeierstrassCurve) {
+	curveParams := elliptic.CurveParams{
+		Name:    "short weierstrass curve",
+		BitSize: 0,
+		N:       zero,
+		Gx:      gx,
+		Gy:      gy,
+		B:       b,
+		P:       p,
+	}
+	curve = shortWeierstrassCurve{
+		CurveParams: &curveParams,
+		A:           a,
+	}
+	return curve
+}
+
+//Params returns the curves CurveParams struct.
+func (curve shortWeierstrassCurve) Params() *elliptic.CurveParams {
+	return curve.CurveParams
+}
+
+//IsOnCurve will return true if the supplied point (x, y) is a valid point
+//for the curve and false otherwise.
+func (curve shortWeierstrassCurve) IsOnCurve(x, y *big.Int) bool {
+	//y^2 = x^3 + a*x + b
+	lhs := new(big.Int).Exp(y, two, curve.P)
+	rhs := new(big.Int).Exp(x, three, curve.P)
+	ax := new(big.Int).Mul(curve.A, x)
+	rhs = rhs.Add(rhs, ax)
+	rhs = rhs.Add(rhs, curve.B)
+	rhs = rhs.Mod(rhs, curve.P)
+
+	if lhs.Cmp(rhs) == 0 {
+		return true
+	}
+	return false
+}
+
+//Add implements generic Short Weierstrass curve addition.
+func (curve shortWeierstrassCurve) Add(x1, y1, x2, y2 *big.Int) (x, y *big.Int) {
+	if curve.isZeroPoint(x1, y1) {
+		x = new(big.Int).SetBytes(x2.Bytes())
+		y = new(big.Int).SetBytes(y2.Bytes())
+		return
+	}
+
+	if curve.isZeroPoint(x2, y2) {
+		x = new(big.Int).SetBytes(x1.Bytes())
+		y = new(big.Int).SetBytes(y1.Bytes())
+		return
+	}
+
+	x2i, y2i := curve.invertPoint(x2, y2)
+	if curve.PointEquals(x1, y1, x2i, y2i) {
+		x = new(big.Int).SetBytes(zero.Bytes())
+		y = new(big.Int).SetBytes(one.Bytes())
+		return
+	}
+
+	m := new(big.Int)
+	if curve.PointEquals(x1, y1, x2, y2) {
+		//m = (3*x1^2 + a) / 2*y1
+		m = m.Exp(x1, two, curve.P)
+		m = m.Mul(m, three)
+		m = m.Add(m, curve.A)
+		bot := new(big.Int).Mul(y1, two)
+		bot = bot.Mod(bot, curve.P)
+		bot = bot.ModInverse(bot, curve.P)
+		m = m.Mul(m, bot)
+		m = m.Mod(m, curve.P)
+	} else {
+		//m = (y2 - y1) / (x2 - x1)
+		m = m.Sub(y2, y1)
+		bot := new(big.Int).Sub(x2, x1)
+		bot = bot.Mod(bot, curve.P)
+		bot = bot.ModInverse(bot, curve.P)
+		m = m.Mul(m, bot)
+		m = m.Mod(m, curve.P)
+	}
+
+	x = new(big.Int).Exp(m, two, curve.P)
+	x = x.Sub(x, x1)
+	x = x.Sub(x, x2)
+	x = x.Mod(x, curve.P)
+
+	y = new(big.Int).Sub(x1, x)
+	y = y.Mul(m, y)
+	y = y.Sub(y, y1)
+	y = y.Mod(y, curve.P)
+	return
+}
+
+//Double returns the supplied point doubled.
+func (curve shortWeierstrassCurve) Double(x1, y1 *big.Int) (x, y *big.Int) {
+	return curve.Add(x1, y1, x1, y1)
+}
+
+//ScalarMult returns k*(x1, y1).
+func (curve shortWeierstrassCurve) ScalarMult(x1, y1 *big.Int, k []byte) (x, y *big.Int) {
+	K := new(big.Int).SetBytes(k)
+	Qx := big.NewInt(0)
+	Qy := big.NewInt(1)
+
+	for i := K.BitLen(); i >= 0; i-- {
+		bit := K.Bit(i)
+		Qx, Qy = curve.Double(Qx, Qy)
+		if bit == 1 {
+			Qx, Qy = curve.Add(Qx, Qy, x1, y1)
+		}
+	}
+	return Qx, Qy
+}
+
+//ScalarBaseMult returns k*(x1, y1) where (x1, y1) is the base point for the
+//supplied curve.
+func (curve shortWeierstrassCurve) ScalarBaseMult(k []byte) (x, y *big.Int) {
+	return curve.ScalarMult(curve.Gx, curve.Gy, k)
+}
+
+//isZeroPoint will return true if the supplied (x,y) values are the "zero"
+//value on a curve.
+func (curve shortWeierstrassCurve) isZeroPoint(x, y *big.Int) bool {
+	one := big.NewInt(1)
+	zero := big.NewInt(0)
+	return curve.PointEquals(x, y, zero, one)
+}
+
+//PointEquals will return true if the supplied points (x1, y1) and (x2, y2) are
+//equal on the given curve.
+func (curve shortWeierstrassCurve) PointEquals(x1, y1, x2, y2 *big.Int) bool {
+	//ensure the points are reduced mod P
+	x1r := new(big.Int).Mod(x1, curve.P)
+	y1r := new(big.Int).Mod(y1, curve.P)
+	x2r := new(big.Int).Mod(x2, curve.P)
+	y2r := new(big.Int).Mod(y2, curve.P)
+
+	if x1r.Cmp(x2r) == 0 && y1r.Cmp(y2r) == 0 {
+		return true
+	}
+	return false
+}
+
+//invertPoint inverts the point (x, y) on the given curve.
+func (curve shortWeierstrassCurve) invertPoint(x, y *big.Int) (xi, yi *big.Int) {
+	xi = new(big.Int).SetBytes(x.Bytes())
+	yi = new(big.Int).Sub(curve.P, y)
+	return
+}
+
+//randomPoint generates a random point on the given curve.
+func (curve shortWeierstrassCurve) randomPoint() (x, y *big.Int) {
+	for {
+		buf := make([]byte, len(curve.P.Bytes()))
+		rand.Read(buf)
+		x = new(big.Int).SetBytes(buf)
+		rhs := new(big.Int).Exp(x, three, curve.P)
+		ax := new(big.Int).Mul(curve.A, x)
+		rhs = rhs.Add(rhs, ax)
+		rhs = rhs.Add(rhs, curve.B)
+		rhs = rhs.Mod(rhs, curve.P)
+		y = new(big.Int).ModSqrt(rhs, curve.P)
+		if y != nil {
+			break
+		}
+	}
+	return
+}

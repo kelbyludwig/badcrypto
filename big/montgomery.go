@@ -1,14 +1,10 @@
 package big
 
-import (
-	"math/big"
-)
+import "math/big"
 
-//montgomeryReduction computes the montgomery reduction
-//of t modulo m with respect to R = 2^n where n is the
-//bit length of m.
-//This algorithm is based off the implementation in
-//"Handbook of Applied Cryptography".
+//montgomeryReduction computes the montgomery reduction of t modulo m with
+//respect to R = 2^n where n is the bit length of m. This algorithm is based
+//off the implementation in "Handbook of Applied Cryptography".
 func montgomeryReduction(m, t *big.Int) *big.Int {
 
 	b := big.NewInt(2)
@@ -43,11 +39,10 @@ func montgomeryReduction(m, t *big.Int) *big.Int {
 
 }
 
-//montgomeryMul returns xy (mod m).
-//montgomeryMul does not return the result in the
-//montgomery domain so it is non-optimized. This version
-//is just used to verify algorithm correctness.
-//This expects x and y to already be reduced mod m.
+//montgomeryMul returns xy (mod m).  montgomeryMul does not return the result
+//in the montgomery domain so it is non-optimized. This version is just used to
+//verify algorithm correctness.  This expects x and y to already be reduced mod
+//m.
 func montgomeryMul(x, y, m *big.Int) *big.Int {
 
 	b := big.NewInt(2)
@@ -91,12 +86,11 @@ func montgomeryMul(x, y, m *big.Int) *big.Int {
 
 }
 
-//MontgomeryMul computes xyR^-1 (mod m) using the
-//Montgomery multiplication technique.
-//The int that is returned is used for error handling and
-//assisting in side-channel research. It will return -1
-//when there was an error, 0 if no "extra reduction" was
-//performed, and 1 if an "extra reducation" was performed.
+//MontgomeryMul computes xyR^-1 (mod m) using the Montgomery multiplication
+//technique.  The int that is returned is used for error handling and assisting
+//in side-channel research. It will return -1 when there was an error, 0 if no
+//"extra reduction" was performed, and 1 if an "extra reducation" was
+//performed.
 func MontgomeryMul(x, y, m *big.Int) (*big.Int, int) {
 
 	if x.Cmp(m) == 1 || y.Cmp(m) == 1 {
@@ -145,12 +139,11 @@ func MontgomeryMul(x, y, m *big.Int) (*big.Int, int) {
 
 }
 
-//ExpMont computes x^e (mod m) using
-//the Montgomery multiplication algorithm.
-//The int that is returned is used for error handling and
-//assisting in side-channel research. It will return -1
-//when there was an error, 0 if no "extra reduction" was
-//performed, and 1 if an "extra reducation" was performed.
+//ExpMont computes x^e (mod m) using the Montgomery multiplication algorithm.
+//The int that is returned is used for error handling and assisting in
+//side-channel research. It will return -1 when there was an error, 0 if no
+//"extra reduction" was performed, and 1 if an "extra reducation" was
+//performed.
 func MontgomeryExp(x, e, m *big.Int) (*big.Int, int) {
 
 	if x.Cmp(m) == 1 {
