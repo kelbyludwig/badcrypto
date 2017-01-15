@@ -8,15 +8,98 @@ import (
 
 var IndexNotRecoveredErr error = fmt.Errorf("index not found")
 
+//RecoveryPartialIndex attempts to recover all bits of an index when only
+//`index = paritalElem (mod partialModulus)` is known. Here, partialModulus is
+//less than the modulus of the original element `originalElem` that with index `index`.
+func RecoverPartialIndex(originalElem, originalGen, originalModulus, originalOrder, partialElem, partialModulus *big.Int) (index *big.Int, err error) {
+
+	sGen := new(big.Int).Exp(originalGen, partialModulus, originalModulus)
+
+	sElem := new(big.Int).Exp(originalGen, partialElem, originalModulus)
+	sElem = sElem.ModInverse(sElem, originalModulus)
+	sElem = sElem.Mul(sElem, originalElem)
+	sElem = sElem.Mod(sElem, originalModulus)
+
+	max := new(big.Int).Sub(originalOrder, one)
+	max = max.Div(max, partialModulus)
+
+	ind, err := Kangaroo(sElem, sGen, originalModulus, zero, max)
+
+	if err != nil {
+		return nil, err
+	}
+
+	index = new(big.Int).Mul(ind, partialModulus)
+	index = index.Add(index, partialElem)
+	return index, nil
+
+}
+
+//Kangaroo implements Pollard's kangaroo algorithm for solving discrete logs
+//within a specified range.
+func Kangaroo(elem, gen, modulus, min, max *big.Int) (index *big.Int, err error) {
+
+	//This is how sage generates N
+	N := SqrtBig(new(big.Int).Sub(max, min))
+	N = N.Add(N, one)
+
+	//This is how sage generates k
+	k := big.NewInt(0)
+	for new(big.Int).Exp(big.NewInt(2), k, nil).Cmp(N) < 0 {
+		k = k.Add(k, one)
+	}
+
+	//The suggested function from cryptopals
+	f := func(y *big.Int) *big.Int {
+		ymk := new(big.Int).Mod(y, k)
+		return ymk.Exp(big.NewInt(2), ymk, modulus)
+	}
+
+	//tame kangaroo
+	xT := big.NewInt(0)
+	i := big.NewInt(1)
+	yT := new(big.Int).Exp(gen, max, modulus)
+	for i.Cmp(N) <= 0 {
+		xT = xT.Add(xT, f(yT))
+		xT = xT.Mod(xT, modulus)
+		gfyT := new(big.Int).Exp(gen, f(yT), modulus)
+		yT = yT.Mul(yT, gfyT)
+		yT = yT.Mod(yT, modulus)
+		i = i.Add(i, one)
+	}
+
+	//wild kangaroo
+	xW := big.NewInt(0)
+	yW := new(big.Int).SetBytes(elem.Bytes())
+	cond := new(big.Int).Sub(max, min)
+	cond = cond.Add(cond, xT)
+	for xW.Cmp(cond) < 0 {
+		xW = xW.Add(xW, f(yW))
+		xW = xW.Mod(xW, modulus)
+		gfyW := new(big.Int).Exp(gen, f(yW), modulus)
+		yW = yW.Mul(yW, gfyW)
+		yW = yW.Mod(yW, modulus)
+		if yW.Cmp(yT) == 0 {
+			index = new(big.Int).Add(max, xT)
+			index = index.Sub(index, xW)
+			return index, nil
+		}
+	}
+	return nil, IndexNotRecoveredErr
+}
+
 //PohligHellmanOnline implements subgroup confinement against a "online"
 //oracle. The oracle function should take in a group element `g` return `h =
 //g^x (mod modulus)`. PohligHellmanOnline will generate small order groups and
-//use the oracle to recover as much of the private key `x` as it can.
-func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int)) (index *big.Int, err error) {
+//use the oracle to recover as much of the private key `x` as it can.  It is
+//not guaranteed to recover the all bits of the index but will at least return
+//the index modulus newmod.
+func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int)) (index, newmod *big.Int, err error) {
 	mmo := new(big.Int).Sub(modulus, one)
-	factors, _ := Factor(mmo, 65536)
+	factors, _ := Factor(mmo, 1048576)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
+
 	for factor, _ := range factors {
 		primeFactor := big.NewInt(int64(factor))
 		sGen := RandomSubgroupElement(modulus, primeFactor)
@@ -29,32 +112,23 @@ func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int))
 		moduli = append(moduli, primeFactor)
 	}
 
-	if len(indices) == 0 || len(moduli) == 0 {
-		err = IndexNotRecoveredErr
-		return nil, err
-	}
-
-	index, err = CRT(indices, moduli)
-	if err != nil {
-		err = IndexNotRecoveredErr
-		return nil, err
-	}
-
-	return index, nil
+	return CRT(indices, moduli)
 }
 
 //PohligHellman will solve for the index of `elem` using the generator `gen`
-//for the group of order `order`.
-func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err error) {
+//for the group of order `order`. It is not guaranteed to recover the all bits
+//of the index but will at least return the index modulus newmod.
+func PohligHellman(elem, gen, modulus, order *big.Int) (index, newmod *big.Int, err error) {
 
 	ord := new(big.Int).SetBytes(order.Bytes())
 	//TODO(kkl): Loop over Factor (I will need a FactorRange function first) and the `rest` return value here to
-	//           intelligently only factor what we need to recover the index.
-	factors, _ := Factor(ord, 65536)
+	//           intelligently only factor what we need to recover the index. FactorRange probably doesn't need
+	//           to exposed in the library because it would only really work using the naive algorithm if its
+	//           input is spot-on (i.e. no non-prime divisors are present in the input)
+	factors, _ := Factor(ord, 1048576)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
 
-	//mmo := new(big.Int).Sub(modulus, one)
 	//TODO(kkl): Update this to cover repeat prime factors.
 	for factor, _ := range factors {
 		primeFactor := big.NewInt(int64(factor))
@@ -69,18 +143,7 @@ func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err erro
 		moduli = append(moduli, primeFactor)
 	}
 
-	if len(indices) == 0 || len(moduli) == 0 {
-		err = IndexNotRecoveredErr
-		return nil, err
-	}
-
-	index, err = CRT(indices, moduli)
-	if err != nil {
-		err = IndexNotRecoveredErr
-		return nil, err
-	}
-
-	return index, nil
+	return CRT(indices, moduli)
 }
 
 //ComputeIndexWithinRange will solve for x in the equation gen^x = elem = (mod
@@ -123,8 +186,13 @@ func ComputeIndex(elem, gen, modulus *big.Int) (index *big.Int, err error) {
 }
 
 //CRT will return the result of the chinese remainder thereom applied to the
-//supplied residues and respective moduli.
-func CRT(a, moduli []*big.Int) (*big.Int, error) {
+//supplied residues and respective moduli. The return values x and modulus are
+//the solution to the new congruence and the modulus respectively.
+func CRT(a, moduli []*big.Int) (nc, modulus *big.Int, err error) {
+	if len(a) == 0 || len(moduli) == 0 {
+		return nil, nil, fmt.Errorf("no residues")
+	}
+
 	p := new(big.Int).Set(moduli[0])
 	for _, n1 := range moduli[1:] {
 		p.Mul(p, n1)
@@ -134,11 +202,11 @@ func CRT(a, moduli []*big.Int) (*big.Int, error) {
 		q.Div(p, n1)
 		z.GCD(nil, &s, n1, &q)
 		if z.Cmp(one) != 0 {
-			return nil, fmt.Errorf("%d not coprime", n1)
+			return nil, nil, fmt.Errorf("%d not coprime", n1)
 		}
 		x.Add(&x, s.Mul(a[i], s.Mul(&s, &q)))
 	}
-	return x.Mod(&x, p), nil
+	return x.Mod(&x, p), p, nil
 }
 
 // SqrtBig returns floor(sqrt(n)). It panics on n < 0.
