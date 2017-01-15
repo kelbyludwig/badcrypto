@@ -64,8 +64,10 @@ func Kangaroo(elem, gen, modulus, min, max *big.Int) (index *big.Int, err error)
 //PohligHellmanOnline implements subgroup confinement against a "online"
 //oracle. The oracle function should take in a group element `g` return `h =
 //g^x (mod modulus)`. PohligHellmanOnline will generate small order groups and
-//use the oracle to recover as much of the private key `x` as it can.
-func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int)) (index *big.Int, err error) {
+//use the oracle to recover as much of the private key `x` as it can.  It is
+//not guaranteed to recover the all bits of the index but will at least return
+//the index modulus newmod.
+func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int)) (index, newmod *big.Int, err error) {
 	mmo := new(big.Int).Sub(modulus, one)
 	factors, _ := Factor(mmo, 65536)
 	indices := make([]*big.Int, 0)
@@ -83,17 +85,19 @@ func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int))
 		moduli = append(moduli, primeFactor)
 	}
 
-	index, _, err = CRT(indices, moduli)
-	return index, err
+	return CRT(indices, moduli)
 }
 
 //PohligHellman will solve for the index of `elem` using the generator `gen`
-//for the group of order `order`.
-func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err error) {
+//for the group of order `order`. It is not guaranteed to recover the all bits
+//of the index but will at least return the index modulus newmod.
+func PohligHellman(elem, gen, modulus, order *big.Int) (index, newmod *big.Int, err error) {
 
 	ord := new(big.Int).SetBytes(order.Bytes())
 	//TODO(kkl): Loop over Factor (I will need a FactorRange function first) and the `rest` return value here to
-	//           intelligently only factor what we need to recover the index.
+	//           intelligently only factor what we need to recover the index. FactorRange probably doesn't need
+	//           to exposed in the library because it would only really work using the naive algorithm if its
+	//           input is spot-on (i.e. no non-prime divisors are present in the input)
 	factors, _ := Factor(ord, 65536)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
@@ -112,8 +116,7 @@ func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err erro
 		moduli = append(moduli, primeFactor)
 	}
 
-	index, _, err = CRT(indices, moduli)
-	return index, err
+	return CRT(indices, moduli)
 }
 
 //ComputeIndexWithinRange will solve for x in the equation gen^x = elem = (mod

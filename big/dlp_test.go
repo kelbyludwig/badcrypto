@@ -53,7 +53,7 @@ func TestCryptopals57(t *testing.T) {
 	}
 	for _, te := range tests {
 		oracle := oracler(te.mod, te.expected)
-		result, err := PohligHellmanOnline(te.mod, oracle)
+		result, _, err := PohligHellmanOnline(te.mod, oracle)
 		if err != nil {
 			t.Errorf("unexpected error occurred")
 		}
@@ -96,7 +96,7 @@ func TestPohligHellman(t *testing.T) {
 	}
 
 	for _, te := range tests {
-		result, err := PohligHellman(te.elem, te.gen, te.mod, te.ord)
+		result, _, err := PohligHellman(te.elem, te.gen, te.mod, te.ord)
 		if err != nil {
 			t.Errorf("unexpected error occurred")
 		}
