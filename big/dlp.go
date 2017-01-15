@@ -8,6 +8,33 @@ import (
 
 var IndexNotRecoveredErr error = fmt.Errorf("index not found")
 
+//RecoveryPartialIndex attempts to recover all bits of an index when only
+//`index = paritalElem (mod partialModulus)` is known. Here, partialModulus is
+//less than the modulus of the original element `originalElem` that with index `index`.
+func RecoverPartialIndex(originalElem, originalGen, originalModulus, originalOrder, partialElem, partialModulus *big.Int) (index *big.Int, err error) {
+
+	sGen := new(big.Int).Exp(originalGen, partialModulus, originalModulus)
+
+	sElem := new(big.Int).Exp(originalGen, partialElem, originalModulus)
+	sElem = sElem.ModInverse(sElem, originalModulus)
+	sElem = sElem.Mul(sElem, originalElem)
+	sElem = sElem.Mod(sElem, originalModulus)
+
+	max := new(big.Int).Sub(originalOrder, one)
+	max = max.Div(max, partialModulus)
+
+	ind, err := Kangaroo(sElem, sGen, originalModulus, zero, max)
+
+	if err != nil {
+		return nil, err
+	}
+
+	index = new(big.Int).Mul(ind, partialModulus)
+	index = index.Add(index, partialElem)
+	return index, nil
+
+}
+
 //Kangaroo implements Pollard's kangaroo algorithm for solving discrete logs
 //within a specified range.
 func Kangaroo(elem, gen, modulus, min, max *big.Int) (index *big.Int, err error) {
@@ -69,7 +96,7 @@ func Kangaroo(elem, gen, modulus, min, max *big.Int) (index *big.Int, err error)
 //the index modulus newmod.
 func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int)) (index, newmod *big.Int, err error) {
 	mmo := new(big.Int).Sub(modulus, one)
-	factors, _ := Factor(mmo, 65536)
+	factors, _ := Factor(mmo, 1048576)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
 
@@ -98,7 +125,7 @@ func PohligHellman(elem, gen, modulus, order *big.Int) (index, newmod *big.Int, 
 	//           intelligently only factor what we need to recover the index. FactorRange probably doesn't need
 	//           to exposed in the library because it would only really work using the naive algorithm if its
 	//           input is spot-on (i.e. no non-prime divisors are present in the input)
-	factors, _ := Factor(ord, 65536)
+	factors, _ := Factor(ord, 1048576)
 	indices := make([]*big.Int, 0)
 	moduli := make([]*big.Int, 0)
 
