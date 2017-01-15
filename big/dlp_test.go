@@ -38,6 +38,28 @@ func TestCryptopals57(t *testing.T) {
 	}
 }
 
+func TestKangaroo(t *testing.T) {
+
+	tests := []struct {
+		elem, gen, mod, min, max, expected *big.Int
+	}{
+		{big.NewInt(3), big.NewInt(7), big.NewInt(11), big.NewInt(2), big.NewInt(6), big.NewInt(4)},
+		{big.NewInt(1572), big.NewInt(2), big.NewInt(3307), big.NewInt(600), big.NewInt(800), big.NewInt(789)},
+		{big.NewInt(298403), big.NewInt(2), big.NewInt(510529), big.NewInt(3000), big.NewInt(3501), big.NewInt(3500)},
+	}
+
+	for _, te := range tests {
+		result, err := Kangaroo(te.elem, te.gen, te.mod, te.min, te.max)
+		if err != nil {
+			t.Errorf("unexpected error occurred")
+		}
+		if result.Cmp(te.expected) != 0 {
+			t.Errorf("incorrect result returned: %d != %d^%d %% %d == %d", result, te.gen, te.expected, te.mod, te.elem)
+		}
+	}
+
+}
+
 func TestPohligHellman(t *testing.T) {
 
 	tests := []struct {
