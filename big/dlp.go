@@ -83,7 +83,8 @@ func PohligHellmanOnline(modulus *big.Int, oracle func(g *big.Int) (h *big.Int))
 		moduli = append(moduli, primeFactor)
 	}
 
-	return CRT(indices, moduli)
+	index, _, err = CRT(indices, moduli)
+	return index, err
 }
 
 //PohligHellman will solve for the index of `elem` using the generator `gen`
@@ -111,7 +112,8 @@ func PohligHellman(elem, gen, modulus, order *big.Int) (index *big.Int, err erro
 		moduli = append(moduli, primeFactor)
 	}
 
-	return CRT(indices, moduli)
+	index, _, err = CRT(indices, moduli)
+	return index, err
 }
 
 //ComputeIndexWithinRange will solve for x in the equation gen^x = elem = (mod
@@ -154,10 +156,11 @@ func ComputeIndex(elem, gen, modulus *big.Int) (index *big.Int, err error) {
 }
 
 //CRT will return the result of the chinese remainder thereom applied to the
-//supplied residues and respective moduli.
-func CRT(a, moduli []*big.Int) (*big.Int, error) {
+//supplied residues and respective moduli. The return values x and modulus are
+//the solution to the new congruence and the modulus respectively.
+func CRT(a, moduli []*big.Int) (nc, modulus *big.Int, err error) {
 	if len(a) == 0 || len(moduli) == 0 {
-		return nil, fmt.Errorf("no residues")
+		return nil, nil, fmt.Errorf("no residues")
 	}
 
 	p := new(big.Int).Set(moduli[0])
@@ -169,11 +172,11 @@ func CRT(a, moduli []*big.Int) (*big.Int, error) {
 		q.Div(p, n1)
 		z.GCD(nil, &s, n1, &q)
 		if z.Cmp(one) != 0 {
-			return nil, fmt.Errorf("%d not coprime", n1)
+			return nil, nil, fmt.Errorf("%d not coprime", n1)
 		}
 		x.Add(&x, s.Mul(a[i], s.Mul(&s, &q)))
 	}
-	return x.Mod(&x, p), nil
+	return x.Mod(&x, p), p, nil
 }
 
 // SqrtBig returns floor(sqrt(n)). It panics on n < 0.

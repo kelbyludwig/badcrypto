@@ -128,7 +128,7 @@ func TestCRT(t *testing.T) {
 	result := new(big.Int)
 	var err error
 	for _, te := range tests {
-		result, err = CRT(te.residues, te.moduli)
+		result, _, err = CRT(te.residues, te.moduli)
 		if err != nil {
 			t.Errorf("unexpected error occurred")
 			return
