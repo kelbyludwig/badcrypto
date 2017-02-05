@@ -3,7 +3,10 @@ package elliptic
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"math/big"
+
+	bbig "github.com/kelbyludwig/badcrypto/big"
 )
 
 var zero *big.Int = big.NewInt(0)
@@ -11,18 +14,24 @@ var one *big.Int = big.NewInt(1)
 var two *big.Int = big.NewInt(2)
 var three *big.Int = big.NewInt(3)
 
+var IndexNotRecoveredErr error = fmt.Errorf("index not found")
+
+type scalarMultOracle func(x, y *big.Int) (*big.Int, *big.Int)
+
 type shortWeierstrassCurve struct {
 	*elliptic.CurveParams
 	A *big.Int
 }
 
 //NewCurve creates a new curve that implements the `elliptic.Curve` interface
-//with custom parameters.
-func NewCurve(a, b, p, gx, gy *big.Int) (curve shortWeierstrassCurve) {
+//with custom parameters. The curve represented by shortWeierstrassCurve has
+//the following structure:y^2 = x^3 + a*x + b.  p is the order of the
+//underlying field and n is the order of the base point (gx,gy).
+func NewCurve(a, b, p, n, gx, gy *big.Int) (curve shortWeierstrassCurve) {
 	curveParams := elliptic.CurveParams{
 		Name:    "short weierstrass curve",
 		BitSize: 0,
-		N:       zero,
+		N:       n,
 		Gx:      gx,
 		Gy:      gy,
 		B:       b,
@@ -174,6 +183,7 @@ func (curve shortWeierstrassCurve) randomPoint() (x, y *big.Int) {
 		buf := make([]byte, len(curve.P.Bytes()))
 		rand.Read(buf)
 		x = new(big.Int).SetBytes(buf)
+		x = x.Mod(x, curve.P)
 		rhs := new(big.Int).Exp(x, three, curve.P)
 		ax := new(big.Int).Mul(curve.A, x)
 		rhs = rhs.Add(rhs, ax)
@@ -181,8 +191,83 @@ func (curve shortWeierstrassCurve) randomPoint() (x, y *big.Int) {
 		rhs = rhs.Mod(rhs, curve.P)
 		y = new(big.Int).ModSqrt(rhs, curve.P)
 		if y != nil {
+			y = y.Mod(y, curve.P)
 			break
 		}
 	}
 	return
+}
+
+func (curve shortWeierstrassCurve) pointWithSpecifiedOrder(r *big.Int) (*big.Int, *big.Int) {
+
+	for {
+		x, y := curve.randomPoint()
+		nr := new(big.Int).Div(curve.N, r)
+		a, b := curve.ScalarMult(x, y, nr.Bytes())
+		if !curve.isZeroPoint(a, b) {
+			return a, b
+		}
+	}
+
+}
+
+//ComputeIndexWithinRange will solve for s in the equation s*(x,y) = (a,b) where P
+//is curve's base point. If the index does not fall within the specified range,
+//this function will return an error.
+func (curve shortWeierstrassCurve) ComputeIndexWithinRange(a, b, x, y, min, max *big.Int) (index *big.Int, err error) {
+	index = new(big.Int).SetBytes(min.Bytes())
+	for index.Cmp(max) != 1 {
+		aa, bb := curve.ScalarMult(x, y, index.Bytes())
+		if curve.PointEquals(a, b, aa, bb) {
+			return
+		}
+		index = index.Add(index, one)
+	}
+	return nil, IndexNotRecoveredErr
+
+}
+
+//pohligHellmanOnline implements the invalid curve attack against a specified
+//curve `curve` and an oracle function `oracle` that computes scalarmults on
+//the input point. This method takes pre-generated small-order curves as input
+//because I have not implemented point counting yet.
+func (curve shortWeierstrassCurve) pohligHellmanOnline(smallOrderCurves []shortWeierstrassCurve, oracle scalarMultOracle) (index, newmod *big.Int, err error) {
+
+	for _, soc := range smallOrderCurves {
+		if soc.N != nil && soc.N.Cmp(zero) == 0 {
+			return nil, nil, fmt.Errorf("order of smallOrderCurve not supplied")
+		}
+	}
+
+	indices := make([]*big.Int, 0)
+	moduli := make([]*big.Int, 0)
+
+	for _, soc := range smallOrderCurves {
+		mmo := new(big.Int).SetBytes(soc.N.Bytes())
+		factors, _ := bbig.Factor(mmo, 1048576)
+
+	NewFactor:
+		for factor, _ := range factors {
+			primeFactor := big.NewInt(int64(factor))
+			if primeFactor.Cmp(two) == 0 {
+				continue
+			}
+			for _, rec := range moduli {
+				gcd := new(big.Int).GCD(nil, nil, rec, primeFactor)
+				if gcd.Cmp(one) != 0 {
+					continue NewFactor
+				}
+			}
+			x, y := soc.pointWithSpecifiedOrder(primeFactor)
+			xx, yy := oracle(x, y)
+			ind, err := soc.ComputeIndexWithinRange(xx, yy, x, y, zero, primeFactor)
+			if err != nil {
+				continue
+			}
+			indices = append(indices, ind)
+			moduli = append(moduli, primeFactor)
+		}
+	}
+	return bbig.CRT(indices, moduli)
+
 }
