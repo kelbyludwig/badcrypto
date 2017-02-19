@@ -26,7 +26,39 @@ func init() {
 	hund, _ = new(big.Int).SetString("100", 10)
 	hundX, _ = new(big.Int).SetString("12246423879899346038895890356990169239", 10)
 	hundY, _ = new(big.Int).SetString("58231960761567435246734586214813749649", 10)
-	curve = NewCurve(a, b, p, gx, gy)
+	//TODO(kkl): using zero for curve order until SEA is implmented.
+	curve = NewCurve(a, b, p, zero, gx, gy)
+}
+
+func TestCryptopals59(t *testing.T) {
+
+	b1 := big.NewInt(210)
+	o1, _ := new(big.Int).SetString("233970423115425145550826547352470124412", 10)
+	b2 := big.NewInt(504)
+	o2, _ := new(big.Int).SetString("233970423115425145544350131142039591210", 10)
+	b3 := big.NewInt(727)
+	o3, _ := new(big.Int).SetString("233970423115425145545378039958152057148", 10)
+	priv := big.NewInt(705485)
+
+	curve1 := NewCurve(a, b1, p, o1, gx, gy)
+	curve2 := NewCurve(a, b2, p, o2, gx, gy)
+	curve3 := NewCurve(a, b3, p, o3, gx, gy)
+	smallOrderCurves := []shortWeierstrassCurve{
+		curve1, curve2, curve3,
+	}
+
+	oracle := func(x, y *big.Int) (*big.Int, *big.Int) {
+		a, b := curve.ScalarMult(x, y, priv.Bytes())
+		return a, b
+	}
+
+	ind, _, err := curve.pohligHellmanOnline(smallOrderCurves, oracle)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	if ind.Cmp(priv) != 0 {
+		t.Errorf("failed to recover private key")
+	}
 }
 
 func TestCurveAddition(t *testing.T) {
