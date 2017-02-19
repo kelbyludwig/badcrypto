@@ -1,7 +1,6 @@
 package elliptic
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 )
@@ -53,12 +52,13 @@ func TestCryptopals59(t *testing.T) {
 		return a, b
 	}
 
-	ind, newmod, err := curve.pohligHellmanOnline(smallOrderCurves, oracle)
+	ind, _, err := curve.pohligHellmanOnline(smallOrderCurves, oracle)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	fmt.Printf("ind: %v\n", ind)
-	fmt.Printf("new: %v\n", newmod)
+	if ind.Cmp(priv) != 0 {
+		t.Errorf("failed to recover private key")
+	}
 }
 
 func TestCurveAddition(t *testing.T) {
